@@ -4,7 +4,7 @@ A comprehensive IoT power monitoring application built with Flutter that provide
 
 ## 📱 Overview
 
-PowerMark is a cross-platform mobile application designed to help users monitor and manage their electrical power consumption through IoT-enabled devices. The app connects to IoT sensors and provides detailed insights into energy usage patterns, helping users optimize their power consumption and reduce electricity bills.
+PowerMark is a mobile application designed to help users monitor and manage their electrical power consumption through IoT-enabled devices. The app connects to IoT sensors and provides detailed insights into energy usage patterns, helping users optimize their power consumption and reduce electricity bills.
 
 ## 🚀 Features
 
@@ -14,14 +14,15 @@ PowerMark is a cross-platform mobile application designed to help users monitor 
 - Instantaneous power readings with historical data
 
 ### Dashboard Analytics
-- Interactive charts and graphs for energy consumption trends
-- Daily, weekly, and monthly usage reports
+- Visual volage, current and power reading
+- Daily reports on device usage, volatge and current
 - Peak usage time identification and analysis
 
 ### Device Management
 - Multiple device connectivity and monitoring
 - Device status tracking and alerts
 - Remote device control capabilities
+- Device label modification
 
 ### Smart Alerts
 - Customizable threshold notifications
@@ -29,13 +30,12 @@ PowerMark is a cross-platform mobile application designed to help users monitor 
 - Abnormal consumption pattern detection
 
 ### Data Export
-- Export consumption data to various formats
-- Integration with cloud storage services
-- API access for third-party integrations
+- Export consumption data to pdf formats
+- Secret Installer's setting
 
 ## 🛠️ Technologies Used
 
-- **Frontend**: Flutter (Dart)
+- **Frontend**: Flutter (Dart) with webview flutter for iot dashboard
 - **Backend**: Firebase (Authentication, Firestore, Cloud Functions)
 - **IoT Communication**: MQTT, WebSocket
 - **Data Visualization**: Charts Flutter, Syncfusion
@@ -57,5 +57,3 @@ PowerMark is a cross-platform mobile application designed to help users monitor 
 *Device management and control interface*
 
 ---
-
-**PowerMark** - Smart Energy Monitoring for a Sustainable Future
