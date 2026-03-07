@@ -44,11 +44,6 @@ PowerMark is a cross-platform mobile application designed to help users monitor 
 ## 📱 Platform Support
 
 - ✅ **Android** (API 21+)
-- ✅ **iOS** (iOS 12.0+)
-- ✅ **Web** (Progressive Web App)
-- ✅ **Linux** (Desktop)
-- ✅ **macOS** (Desktop)
-- ✅ **Windows** (Desktop)
 
 ## 📊 Screenshots
 
