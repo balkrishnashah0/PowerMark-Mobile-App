@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,17 +18,17 @@ const _ssidsUuid = '0000ef03-0000-1000-8000-00805f9b34fb';
 const _respUuid  = '0000ef05-0000-1000-8000-00805f9b34fb';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BleBridge
+// BleBridge — delegates BLE ops from WebView JS to native flutter_blue_plus
 //
-// Wire-up in your State.initState():
-//   _bleBridge = BleBridge(controller: _controller);
+// 1. In State.initState(), after building WebViewController:
+//      _bleBridge = BleBridge(controller: _controller);
 //
-// Add the JS channel when building WebViewController:
-//   ..addJavaScriptChannel('BleChannel',
-//       onMessageReceived: (msg) => _bleBridge.handleMessage(msg.message))
+// 2. Add JS channel to WebViewController:
+//      ..addJavaScriptChannel('BleChannel',
+//          onMessageReceived: (msg) => _bleBridge.handleMessage(msg.message))
 //
-// Dispose in State.dispose():
-//   _bleBridge.dispose();
+// 3. In State.dispose():
+//      _bleBridge.dispose();
 // ─────────────────────────────────────────────────────────────────────────────
 class BleBridge {
   final WebViewController controller;
@@ -45,28 +46,26 @@ class BleBridge {
 
   BleBridge({required this.controller});
 
-  // ── Entry point called by the BleChannel JS channel ───────────────────────
+  // ── Entry point from JS channel ───────────────────────────────────────────
   void handleMessage(String jsonStr) {
     try {
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
       switch (data['cmd'] as String? ?? '') {
-        case 'CHECK_BT':  _checkBluetooth();                              break;
-        case 'CONNECT':   _connect();                                     break;
-        case 'WRITE_PIN': _writePin(data['pin'] as String? ?? '');        break;
-        case 'SCAN_WIFI': _scanWifi();                                    break;
-        case 'SEND_WIFI':
-          _sendWifi(data['ssid'] as String? ?? '', data['pass'] as String? ?? '');
-          break;
+        case 'CHECK_BT':  _checkBluetooth();                                    break;
+        case 'CONNECT':   _connect();                                           break;
+        case 'WRITE_PIN': _writePin(data['pin']  as String? ?? '');             break;
+        case 'SCAN_WIFI': _scanWifi();                                          break;
+        case 'SEND_WIFI': _sendWifi(data['ssid'] as String? ?? '',
+                                    data['pass'] as String? ?? '');             break;
       }
     } catch (e) {
       debugPrint('[BleBridge] handleMessage error: $e');
     }
   }
 
-  // ── Post an event back to JavaScript ──────────────────────────────────────
+  // ── Post an event back to JS ───────────────────────────────────────────────
   Future<void> _jsEvent(String event, [Map<String, dynamic>? extra]) async {
     final payload = <String, dynamic>{'event': event, ...?extra};
-    // Double-encode: Flutter passes a String to JS, JS does JSON.parse on it.
     final js =
         'if(window._ble&&window._ble.onEvent)window._ble.onEvent(${jsonEncode(jsonEncode(payload))})';
     try {
@@ -77,78 +76,98 @@ class BleBridge {
   }
 
   // ── CHECK_BT ──────────────────────────────────────────────────────────────
-  // Android: requests permissions first (avoids Android 12 crash), then calls
-  //          FlutterBluePlus.turnOn() which shows the OS "Turn on Bluetooth?"
-  //          system dialog.
-  // iOS:     cannot turn BT on programmatically — instructs user to use
-  //          Control Centre.
   Future<void> _checkBluetooth() async {
     if (Platform.isAndroid) {
-      // MUST request BLUETOOTH_CONNECT before calling turnOn() — otherwise
-      // Android 12 crashes with a SecurityException.
-      final statuses = await [
-        Permission.bluetoothScan,
-        Permission.bluetoothConnect,
-        Permission.locationWhenInUse,
-      ].request();
-
-      if (statuses.values.any((s) => s == PermissionStatus.permanentlyDenied)) {
-        await _jsEvent('BT_UNAVAILABLE', {
-          'reason':
-              'Bluetooth permission permanently denied. '
-              'Go to Android Settings → Apps → [this app] → Permissions and enable Bluetooth.',
-        });
-        return;
-      }
-      if (statuses.values.any((s) => s == PermissionStatus.denied)) {
-        await _jsEvent('BT_UNAVAILABLE', {
-          'reason': 'Bluetooth permission denied. Please allow it and try again.',
-        });
-        return;
-      }
+      final granted = await _requestAndroidPermissions();
+      if (!granted) return; // _requestAndroidPermissions already fired jsEvent
     }
 
     final state = await FlutterBluePlus.adapterState.first;
-
     if (state == BluetoothAdapterState.on) {
       await _jsEvent('BT_AVAILABLE');
       return;
     }
 
-    // Adapter is off — try to turn it on.
     if (Platform.isAndroid) {
+      // Shows native Android "Allow app to turn on Bluetooth?" dialog
       try {
-        // Shows Android system dialog: "Allow app to turn on Bluetooth?"
         await FlutterBluePlus.turnOn();
-
-        // Wait (up to 10 s) for adapter to finish turning on.
         final next = await FlutterBluePlus.adapterState
             .where((s) => s != BluetoothAdapterState.turningOn)
             .first
             .timeout(const Duration(seconds: 10));
-
         if (next == BluetoothAdapterState.on) {
           await _jsEvent('BT_AVAILABLE');
         } else {
-          await _jsEvent('BT_UNAVAILABLE', {
-            'reason': 'Bluetooth was not enabled. Please turn it on and try again.',
-          });
+          await _jsEvent('BT_UNAVAILABLE',
+              {'reason': 'Bluetooth was not enabled. Please turn it on and try again.'});
         }
       } catch (e) {
         await _jsEvent('BT_UNAVAILABLE', {'reason': e.toString()});
       }
     } else {
-      // iOS — no API to enable BT programmatically.
       await _jsEvent('BT_UNAVAILABLE', {
         'reason': 'Bluetooth is off. Please enable it in Control Centre and try again.',
       });
     }
   }
 
+  // ── Android permission request — version-aware ────────────────────────────
+  // Android 12+ (API 31+) uses BLUETOOTH_SCAN + BLUETOOTH_CONNECT.
+  // Android 11 and below uses the legacy BLUETOOTH permission + location.
+  // permission_handler returns "denied" for permissions that don't exist on
+  // the running OS — so we must branch by SDK version, not just request all.
+  Future<bool> _requestAndroidPermissions() async {
+    final sdkInt = await _androidSdkVersion();
+
+    late Map<Permission, PermissionStatus> statuses;
+
+    if (sdkInt >= 31) {
+      // Android 12+ — new granular BT permissions (no location needed for BLE)
+      statuses = await [
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+      ].request();
+    } else {
+      // Android 11 and below — legacy BT permission + location required for scan
+      statuses = await [
+        Permission.bluetooth,
+        Permission.locationWhenInUse,
+      ].request();
+    }
+
+    final permanentlyDenied =
+        statuses.values.any((s) => s == PermissionStatus.permanentlyDenied);
+    final denied =
+        statuses.values.any((s) => s == PermissionStatus.denied);
+
+    if (permanentlyDenied) {
+      await _jsEvent('BT_UNAVAILABLE', {
+        'reason':
+            'Bluetooth permission permanently denied. '
+            'Go to Settings → Apps → [this app] → Permissions and enable it.',
+      });
+      return false;
+    }
+    if (denied) {
+      await _jsEvent('BT_UNAVAILABLE', {
+        'reason': 'Bluetooth permission denied. Please allow it and try again.',
+      });
+      return false;
+    }
+    return true;
+  }
+
+  Future<int> _androidSdkVersion() async {
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      return info.version.sdkInt;
+    } catch (_) {
+      return 31; // safe default — assume modern if lookup fails
+    }
+  }
+
   // ── CONNECT ───────────────────────────────────────────────────────────────
-  // NOTE: Android has NO native BLE device-picker dialog (unlike Web Bluetooth
-  // or iOS). We scan silently and connect directly by device name. For a single
-  // provisioning target ('ESP32_Config') this is the correct approach.
   Future<void> _connect() async {
     await _jsEvent('CONNECTING');
 
@@ -164,7 +183,6 @@ class BleBridge {
 
       final scanSub = FlutterBluePlus.onScanResults.listen((results) {
         for (final r in results) {
-          // advName is the reliable field in flutter_blue_plus 1.x+
           final name = r.advertisementData.advName.isNotEmpty
               ? r.advertisementData.advName
               : r.device.platformName;
@@ -193,7 +211,7 @@ class BleBridge {
         await _jsEvent('CONNECT_FAILED', {
           'reason':
               'ESP32_Config not found nearby. '
-              'Make sure the ESP32 is powered and in BLE provisioning mode.',
+              'Make sure the ESP32 is powered and in provisioning mode.',
         });
         return;
       }
@@ -212,7 +230,7 @@ class BleBridge {
       final svc = services.firstWhere(
         (s) => s.uuid.toString().toLowerCase() == _svcUuid,
         orElse: () => throw Exception(
-            'BLE service $_svcUuid not found. Check ESP32 firmware UUIDs.'),
+            'BLE service $_svcUuid not found. Check ESP32 firmware.'),
       );
 
       _pinChar   = _findChar(svc, _pinUuid);
@@ -249,11 +267,7 @@ class BleBridge {
     }
     try {
       await _pinChar!.write(pin.codeUnits, withoutResponse: false);
-      if (_respChar == null) {
-        // Older firmware with no response char — optimistic proceed
-        await _jsEvent('PIN_SENT');
-      }
-      // else PIN_OK / PIN_FAIL arrives via _onResponse
+      if (_respChar == null) await _jsEvent('PIN_SENT');
     } catch (e) {
       await _jsEvent('PIN_ERROR', {'reason': e.toString()});
     }
@@ -281,16 +295,13 @@ class BleBridge {
     }
     try {
       await _wifiChar!.write('$ssid|$pass'.codeUnits, withoutResponse: false);
-      if (_respChar == null) {
-        await _jsEvent('WIFI_SAVED');
-      }
-      // else WIFI_SAVED / WIFI_FAIL arrives via _onResponse
+      if (_respChar == null) await _jsEvent('WIFI_SAVED');
     } catch (e) {
       await _jsEvent('WIFI_ERROR', {'reason': e.toString()});
     }
   }
 
-  // ── BLE notification handlers ─────────────────────────────────────────────
+  // ── BLE notification callbacks ────────────────────────────────────────────
   void _onResponse(List<int> value) {
     switch (String.fromCharCodes(value).trim()) {
       case 'PIN_OK':     _jsEvent('PIN_OK');     break;
@@ -309,7 +320,7 @@ class BleBridge {
     _jsEvent('SSID_LIST', {'ssids': ssids});
   }
 
-  // ── Internal helpers ──────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
   BluetoothCharacteristic? _findChar(BluetoothService svc, String uuid) {
     try {
       return svc.characteristics
