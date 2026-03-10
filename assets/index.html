@@ -122,6 +122,7 @@ input  { font-family: inherit; }
 @keyframes blink      { 0%,100%{opacity:1} 50%{opacity:0.15} }
 @keyframes runPulse   { 0%,100%{box-shadow:0 0 0 0 var(--green-glow)} 50%{box-shadow:0 0 0 4px transparent} }
 @keyframes chipFlash  { 0%,100%{opacity:1} 50%{opacity:0.35} }
+@keyframes ocFlash    { 0%,100%{opacity:1;background:var(--red-dim)} 50%{opacity:0.7;background:rgba(255,61,61,0.22)} }
 @keyframes bannerIn   { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
 @keyframes logIn      { from{opacity:0;transform:translateX(-3px)} to{opacity:1;transform:translateX(0)} }
 @keyframes fadeUp     { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
@@ -395,11 +396,13 @@ canvas.sparkline { width: 100%; height: 48px; display: block; margin-top: 8px; }
 .ct-state-badge .badge-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 .ct-state-badge.running { background: var(--green-dim); border-color: var(--green); color: var(--green); animation: runPulse 2s ease-in-out infinite; }
 .ct-state-badge.idle    { background: var(--amber-dim); border-color: var(--amber); color: var(--amber); }
+.ct-state-badge.over    { background: var(--red-dim); border-color: var(--red); color: var(--red); animation: ocFlash 0.7s ease-in-out infinite; }
 
 .ct-amp-row { padding: 10px 14px 6px; display: flex; align-items: baseline; gap: 0.3em; }
 .ct-amp      { font-family: var(--font-mono); font-size: 2.1rem; font-weight: 300; letter-spacing: -0.02em; color: var(--text-1); line-height: 1; transition: color var(--t-med); }
 .ct-amp.active { color: var(--green); text-shadow: 0 0 20px var(--green-glow); }
 .ct-amp.idle   { color: var(--amber); }
+.ct-amp.over   { color: var(--red); text-shadow: 0 0 20px var(--red-glow); }
 .ct-amp-unit   { font-family: var(--font-mono); font-size: 0.8rem; color: var(--text-3); }
 
 canvas.wave { width: 100%; height: 36px; display: block; }
@@ -409,7 +412,8 @@ canvas.wave { width: 100%; height: 36px; display: block; }
 .threshold-fill { height: 100%; border-radius: 100px; background: var(--green); transition: width var(--t-slow) var(--ease), background var(--t-med); max-width: 100%; }
 .threshold-fill.over { background: var(--red); }
 .threshold-fill.idle { background: var(--amber); }
-.threshold-marker { position: absolute; top: -4px; width: 1px; height: 11px; background: var(--amber); border-radius: 1px; transition: left var(--t-slow) var(--ease); }
+.threshold-marker      { position: absolute; top: -4px; width: 1px; height: 11px; background: var(--amber); border-radius: 1px; transition: left var(--t-slow) var(--ease); }
+.threshold-marker-idle { position: absolute; top: -4px; width: 1px; height: 11px; background: var(--green); border-radius: 1px; transition: left var(--t-slow) var(--ease); }
 .threshold-labels { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-3); }
 
 .time-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 0 14px 12px; }
@@ -624,6 +628,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
 .form-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-dim); }
 .form-input.green:focus { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-dim); }
 .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 .input-wrap { position: relative; }
 .input-suffix {
   position: absolute; right: 0; top: 0; bottom: 0;
@@ -1042,12 +1047,13 @@ canvas.wave { width: 100%; height: 36px; display: block; }
           <div class="threshold-wrap">
             <div class="threshold-track">
               <div class="threshold-fill" id="ct1-thresh-fill" style="width:0%"></div>
-              <div class="threshold-marker" id="ct1-thresh-marker" style="left:0%"></div>
+              <div class="threshold-marker"      id="ct1-thresh-marker"      style="left:0%"></div>
+              <div class="threshold-marker-idle" id="ct1-thresh-marker-idle" style="left:0%"></div>
             </div>
             <div class="threshold-labels">
               <span>0A</span>
-              <span id="ct1-idle-lbl">idle –</span>
-              <span id="ct1-max-lbl">max –</span>
+              <span id="ct1-idle-lbl">off –</span>
+              <span id="ct1-max-lbl">oc –</span>
             </div>
           </div>
           <div class="time-grid">
@@ -1085,12 +1091,13 @@ canvas.wave { width: 100%; height: 36px; display: block; }
           <div class="threshold-wrap">
             <div class="threshold-track">
               <div class="threshold-fill" id="ct2-thresh-fill" style="width:0%"></div>
-              <div class="threshold-marker" id="ct2-thresh-marker" style="left:0%"></div>
+              <div class="threshold-marker"      id="ct2-thresh-marker"      style="left:0%"></div>
+              <div class="threshold-marker-idle" id="ct2-thresh-marker-idle" style="left:0%"></div>
             </div>
             <div class="threshold-labels">
               <span>0A</span>
-              <span id="ct2-idle-lbl">idle –</span>
-              <span id="ct2-max-lbl">max –</span>
+              <span id="ct2-idle-lbl">off –</span>
+              <span id="ct2-max-lbl">oc –</span>
             </div>
           </div>
           <div class="time-grid">
@@ -1205,6 +1212,22 @@ canvas.wave { width: 100%; height: 36px; display: block; }
         <div class="settings-list">
           <div class="settings-section">
             <div class="settings-section-header">Connection</div>
+            <div class="settings-row" onclick="openWifiProvisionerSheet()">
+              <div class="settings-row-left">
+                <div class="settings-row-icon cyan">
+                  <svg width="16" height="16" viewBox="0 0 24 24" stroke="var(--cyan)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+                  </svg>
+                </div>
+                <div class="settings-row-info">
+                  <div class="settings-row-title">Wi-Fi Provisioning</div>
+                  <div class="settings-row-sub">BLE · ESP32_Config</div>
+                </div>
+              </div>
+              <div class="settings-row-right">
+                <svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor"><use href="#ico-arrow-right"/></svg>
+              </div>
+            </div>
             <div class="settings-row" onclick="openDeviceSheet()">
               <div class="settings-row-left">
                 <div class="settings-row-icon green">
@@ -1282,7 +1305,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
                 </div>
                 <div class="settings-row-info">
                   <div class="settings-row-title">Version</div>
-                  <div class="settings-row-sub">PowerMark v2.1 · ESP32 · jsPDF</div>
+                  <div class="settings-row-sub">PowerMark v2.2 · ESP32 · jsPDF</div>
                 </div>
               </div>
             </div>
@@ -1420,22 +1443,30 @@ canvas.wave { width: 100%; height: 36px; display: block; }
         <label class="form-label">Device Label</label>
         <input class="form-input green" id="ds-ct1-name" type="text" placeholder="e.g. Water Pump" maxlength="32">
       </div>
-      <div class="form-row-2">
+      <div class="form-row-3">
         <div class="form-group">
-          <label class="form-label">No-Load Limit</label>
+          <label class="form-label">Off Limit</label>
           <div class="input-wrap">
-            <input class="form-input green" id="ds-ct1-idle" type="number" step="0.01" min="0" placeholder="0.50" inputmode="decimal" oninput="updatePreview(1)">
+            <input class="form-input green" id="ds-ct1-off" type="number" step="0.01" min="0" placeholder="0.50" inputmode="decimal" oninput="updatePreview(1)">
             <span class="input-suffix">A</span>
           </div>
-          <div class="form-hint">Below = OFF</div>
+          <div class="form-hint" style="color:var(--text-3)">Below = OFF</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Overcurrent Limit</label>
+          <label class="form-label">Idle Limit</label>
+          <div class="input-wrap">
+            <input class="form-input green" id="ds-ct1-idle" type="number" step="0.1" min="0" placeholder="2.0" inputmode="decimal" oninput="updatePreview(1)">
+            <span class="input-suffix">A</span>
+          </div>
+          <div class="form-hint" style="color:var(--amber)">Below = IDLE</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">OC Limit</label>
           <div class="input-wrap">
             <input class="form-input green" id="ds-ct1-max" type="number" step="0.1" min="0" placeholder="15.0" inputmode="decimal" oninput="updatePreview(1)">
             <span class="input-suffix">A</span>
           </div>
-          <div class="form-hint">Above = Alert</div>
+          <div class="form-hint" style="color:var(--red)">Above = OC</div>
         </div>
       </div>
       <div class="preview-section" id="preview1">
@@ -1448,6 +1479,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
         </div>
         <div class="preview-labels">
           <span>0A</span>
+          <span id="p1-off-lbl"  style="color:var(--text-3)">–</span>
           <span id="p1-idle-lbl" style="color:var(--amber)">–</span>
           <span id="p1-max-lbl"  style="color:var(--red)">–</span>
         </div>
@@ -1460,22 +1492,30 @@ canvas.wave { width: 100%; height: 36px; display: block; }
         <label class="form-label">Device Label</label>
         <input class="form-input green" id="ds-ct2-name" type="text" placeholder="e.g. Air Compressor" maxlength="32">
       </div>
-      <div class="form-row-2">
+      <div class="form-row-3">
         <div class="form-group">
-          <label class="form-label">No-Load Limit</label>
+          <label class="form-label">Off Limit</label>
           <div class="input-wrap">
-            <input class="form-input green" id="ds-ct2-idle" type="number" step="0.01" min="0" placeholder="0.50" inputmode="decimal" oninput="updatePreview(2)">
+            <input class="form-input green" id="ds-ct2-off" type="number" step="0.01" min="0" placeholder="0.50" inputmode="decimal" oninput="updatePreview(2)">
             <span class="input-suffix">A</span>
           </div>
-          <div class="form-hint">Below = OFF</div>
+          <div class="form-hint" style="color:var(--text-3)">Below = OFF</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Overcurrent Limit</label>
+          <label class="form-label">Idle Limit</label>
+          <div class="input-wrap">
+            <input class="form-input green" id="ds-ct2-idle" type="number" step="0.1" min="0" placeholder="2.0" inputmode="decimal" oninput="updatePreview(2)">
+            <span class="input-suffix">A</span>
+          </div>
+          <div class="form-hint" style="color:var(--amber)">Below = IDLE</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">OC Limit</label>
           <div class="input-wrap">
             <input class="form-input green" id="ds-ct2-max" type="number" step="0.1" min="0" placeholder="15.0" inputmode="decimal" oninput="updatePreview(2)">
             <span class="input-suffix">A</span>
           </div>
-          <div class="form-hint">Above = Alert</div>
+          <div class="form-hint" style="color:var(--red)">Above = OC</div>
         </div>
       </div>
       <div class="preview-section" id="preview2">
@@ -1488,6 +1528,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
         </div>
         <div class="preview-labels">
           <span>0A</span>
+          <span id="p2-off-lbl"  style="color:var(--text-3)">–</span>
           <span id="p2-idle-lbl" style="color:var(--amber)">–</span>
           <span id="p2-max-lbl"  style="color:var(--red)">–</span>
         </div>
@@ -1509,7 +1550,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
         </div>
       </div>
       <div class="payload-hint">
-        Payload: <span style="color:var(--green)">{"ct1_idle":0.5,"ct1_max":15,"ct2_idle":0.5,"ct2_max":15,...}</span>
+        Payload: <span style="color:var(--green)">{"ct1_off":0.5,"ct1_idle":2.0,"ct1_max":15,"ct2_off":0.5,"ct2_idle":2.0,"ct2_max":15,...}</span>
       </div>
     </div>
 
@@ -1520,6 +1561,229 @@ canvas.wave { width: 100%; height: 36px; display: block; }
 
   </div>
 </div>
+
+<!-- ══ SHEET: WI-FI PROVISIONER ══ -->
+<div class="bottom-sheet" id="sheet-wifi-provisioner" style="max-height:88vh">
+  <div class="sheet-handle"></div>
+  <div class="sheet-header">
+    <div>
+      <div class="sheet-title">Wi-Fi Provisioning</div>
+      <div class="sheet-sub">BLE · ESP32_Config · Field tool v1.0</div>
+    </div>
+    <button class="sheet-close" onclick="closeSheet('sheet-wifi-provisioner')">
+      <svg width="16" height="16" viewBox="0 0 24 24"><use href="#ico-close"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body" style="padding-bottom:32px">
+
+    <!-- BT warning injected here by JS -->
+    <div id="wps-bt-warning"></div>
+
+    <!-- Boot hint -->
+    <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-3);background:var(--bg-3);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 13px;margin-bottom:14px;line-height:1.6">
+      💡 To forget saved Wi-Fi — hold <strong style="color:var(--text-2)">BOOT</strong> for 3 s. ESP32 restarts into provisioning mode.
+    </div>
+
+    <!-- Step 1 -->
+    <div class="wps-card active" id="wps-card1">
+      <div class="wps-step-header">
+        <div class="wps-num" id="wps-num1">01</div>
+        <div>
+          <div class="wps-label">Connect to Device</div>
+          <div class="wps-sublabel">BLE · ESP32_Config</div>
+        </div>
+      </div>
+      <div class="wps-body">
+        <button class="btn-primary wps-btn" id="wps-connectBtn">⚡ Connect via Bluetooth</button>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="wps-card" id="wps-card2">
+      <div class="wps-step-header">
+        <div class="wps-num" id="wps-num2">02</div>
+        <div>
+          <div class="wps-label">Verify Installer PIN</div>
+          <div class="wps-sublabel">UUID · 0000abcd</div>
+        </div>
+      </div>
+      <div class="wps-body">
+        <input class="form-input" id="wps-pinInput" type="text" placeholder="Enter PIN (e.g. 123456)" disabled autocomplete="off" inputmode="numeric">
+        <button class="btn-primary wps-btn" id="wps-verifyPinBtn" disabled>→ Verify PIN</button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="wps-card" id="wps-card3">
+      <div class="wps-step-header">
+        <div class="wps-num" id="wps-num3">03</div>
+        <div>
+          <div class="wps-label">Select Wi-Fi Network</div>
+          <div class="wps-sublabel">UUID · 0000ef02 / ef03</div>
+        </div>
+      </div>
+      <div class="wps-body">
+        <button class="btn-secondary wps-btn" id="wps-scanBtn" disabled>⟳ Scan Networks</button>
+        <div class="wps-ssid-list" id="wps-ssidList">
+          <div class="wps-empty">Scan to discover nearby networks</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="wps-card" id="wps-card4">
+      <div class="wps-step-header">
+        <div class="wps-num" id="wps-num4">04</div>
+        <div>
+          <div class="wps-label">Enter Password &amp; Connect</div>
+          <div class="wps-sublabel">UUID · 0000ef01</div>
+        </div>
+      </div>
+      <div class="wps-body">
+        <input class="form-input" id="wps-ssidInput" placeholder="Selected SSID" disabled readonly>
+        <input class="form-input" id="wps-passInput" type="password" placeholder="Wi-Fi Password" disabled>
+        <button class="btn-primary wps-btn" id="wps-sendWiFiBtn" disabled style="background:var(--green);color:#000">✓ Send Credentials &amp; Connect</button>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="wps-status" id="wps-statusBar">
+      <div class="wps-status-dot"></div>
+      <span id="wps-statusText">Checking Bluetooth availability…</span>
+    </div>
+
+  </div>
+</div>
+
+<style>
+/* ── Wi-Fi Provisioner sheet styles (scoped with wps- prefix) ── */
+.wps-card {
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-bottom: 8px;
+  overflow: hidden;
+  transition: border-color var(--t-med) var(--ease);
+}
+.wps-card.active  { border-color: var(--border-act); }
+.wps-card.done    { border-color: rgba(0,230,118,0.30); }
+
+.wps-step-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 15px;
+}
+.wps-num {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: all var(--t-med) var(--ease);
+}
+.wps-card.active .wps-num { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 8px var(--cyan-glow); }
+.wps-card.done   .wps-num { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+.wps-label    { font-family: var(--font-body); font-size: 0.85rem; font-weight: 600; color: var(--text-1); }
+.wps-sublabel { font-family: var(--font-mono); font-size: 0.63rem; color: var(--text-3); margin-top: 2px; }
+
+.wps-body {
+  padding: 0 15px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.wps-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all var(--t-fast);
+}
+.wps-btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+
+.wps-ssid-list {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 200px; overflow-y: auto;
+}
+.wps-ssid-list::-webkit-scrollbar { width: 3px; }
+.wps-ssid-list::-webkit-scrollbar-thumb { background: var(--bg-5); border-radius: 2px; }
+
+.wps-ssid-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px;
+  background: var(--bg-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  color: var(--text-2);
+}
+.wps-ssid-item:hover   { border-color: var(--border-act); color: var(--cyan); }
+.wps-ssid-item.selected { border-color: var(--cyan); background: var(--cyan-dim); color: var(--cyan); }
+.wps-ssid-name  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wps-ssid-check { color: var(--cyan); display: none; }
+.wps-ssid-item.selected .wps-ssid-check { display: block; }
+
+.wps-empty {
+  text-align: center; padding: 18px;
+  color: var(--text-4); font-size: 0.70rem; font-family: var(--font-mono);
+}
+
+.wps-status {
+  margin-top: 14px;
+  padding: 11px 13px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 0.70rem;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  display: flex; align-items: flex-start; gap: 8px;
+  line-height: 1.55;
+  transition: all var(--t-med);
+}
+.wps-status.success { border-color: rgba(0,230,118,0.30); color: var(--green); background: var(--green-dim); }
+.wps-status.error   { border-color: rgba(255,61,61,0.30);  color: var(--red);   background: var(--red-dim); }
+.wps-status.warning { border-color: rgba(255,179,0,0.30);  color: var(--amber); background: var(--amber-dim); }
+
+.wps-status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-3);
+  margin-top: 4px; flex-shrink: 0;
+  transition: background var(--t-med);
+}
+.wps-status.success .wps-status-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.wps-status.error   .wps-status-dot { background: var(--red); }
+.wps-status.warning .wps-status-dot { background: var(--amber); animation: blink 1.2s infinite; }
+
+.wps-bt-warn {
+  background: var(--amber-dim);
+  border: 1px solid rgba(255,179,0,0.30);
+  border-radius: var(--r-sm);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 0.70rem;
+  color: var(--amber);
+  font-family: var(--font-mono);
+  line-height: 1.6;
+}
+.wps-bt-warn strong { display: block; margin-bottom: 6px; }
+.wps-bt-warn ol { padding-left: 16px; }
+.wps-bt-warn li { margin: 3px 0; color: var(--text-2); }
+
+.wps-spin { display: inline-block; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 
 <script>
 'use strict';
@@ -1749,8 +2013,9 @@ function disconnectOnly() {
 function openDeviceSheet() {
   const ds = loadJSON(DEVICE_KEY, {});
   const fields = {
-    'ds-ct1-name': ds.ct1Name || '', 'ds-ct1-idle': ds.ct1Idle != null ? ds.ct1Idle : '',
-    'ds-ct1-max':  ds.ct1Max  != null ? ds.ct1Max  : '', 'ds-ct2-name': ds.ct2Name || '',
+    'ds-ct1-name': ds.ct1Name || '', 'ds-ct1-off':  ds.ct1Off  != null ? ds.ct1Off  : '',
+    'ds-ct1-idle': ds.ct1Idle != null ? ds.ct1Idle : '', 'ds-ct1-max':  ds.ct1Max  != null ? ds.ct1Max  : '',
+    'ds-ct2-name': ds.ct2Name || '', 'ds-ct2-off':  ds.ct2Off  != null ? ds.ct2Off  : '',
     'ds-ct2-idle': ds.ct2Idle != null ? ds.ct2Idle : '', 'ds-ct2-max':  ds.ct2Max  != null ? ds.ct2Max  : '',
     'ds-cmd-topic': ds.cmdTopic || ''
   };
@@ -1765,17 +2030,19 @@ function setQos(q, show = true) {
   [0,1,2].forEach(n => { const b = document.getElementById('qos-' + n); if (b) b.classList.toggle('active', n === q); });
 }
 function updatePreview(ch) {
+  const offVal  = parseFloat(val(`ds-ct${ch}-off`));
   const idleVal = parseFloat(val(`ds-ct${ch}-idle`));
   const maxVal  = parseFloat(val(`ds-ct${ch}-max`));
   const scale   = maxVal > 0 ? maxVal * 1.25 : 20;
-  const offPct  = isNaN(idleVal) ? 0 : Math.min(100, (idleVal / scale) * 100);
-  const idlePct = (!isNaN(idleVal) && !isNaN(maxVal)) ? Math.min(100, ((maxVal - idleVal) / scale) * 100) : 0;
-  const runPct  = (!isNaN(maxVal)) ? Math.min(100, ((scale * 0.15) / scale) * 100) : 0;
+  const offPct  = (!isNaN(offVal))  ? Math.min(100, (offVal  / scale) * 100) : 0;
+  const idlePct = (!isNaN(offVal) && !isNaN(idleVal)) ? Math.min(100, ((idleVal - offVal) / scale) * 100) : 0;
+  const runPct  = (!isNaN(idleVal) && !isNaN(maxVal)) ? Math.min(100, ((maxVal  - idleVal) / scale) * 100) : 0;
   setStyle(`p${ch}-off`,  'width', offPct  + '%');
   setStyle(`p${ch}-idle`, 'width', idlePct + '%');
   setStyle(`p${ch}-run`,  'width', runPct  + '%');
-  setText(`p${ch}-idle-lbl`, isNaN(idleVal) ? '–' : idleVal.toFixed(2) + 'A');
-  setText(`p${ch}-max-lbl`,  isNaN(maxVal)  ? '–' : maxVal.toFixed(1) + 'A');
+  setText(`p${ch}-off-lbl`,  isNaN(offVal)  ? '–' : offVal.toFixed(2)  + 'A');
+  setText(`p${ch}-idle-lbl`, isNaN(idleVal) ? '–' : idleVal.toFixed(1) + 'A');
+  setText(`p${ch}-max-lbl`,  isNaN(maxVal)  ? '–' : maxVal.toFixed(1)  + 'A');
 }
 function saveDeviceSettingsLocal() {
   const ds = readDeviceForm();
@@ -1789,8 +2056,8 @@ function sendDeviceSettings() {
   if (!ds.cmdTopic) { setText('devset-send-result', '⚠ No command topic set'); return; }
   if (!mqttClient || !mqttClient.isConnected()) { setText('devset-send-result', '⚠ MQTT not connected'); return; }
   const payload = JSON.stringify({
-    ct1_idle: ds.ct1Idle, ct1_max: ds.ct1Max,
-    ct2_idle: ds.ct2Idle, ct2_max: ds.ct2Max,
+    ct1_off:  ds.ct1Off,  ct1_idle: ds.ct1Idle, ct1_max: ds.ct1Max,
+    ct2_off:  ds.ct2Off,  ct2_idle: ds.ct2Idle, ct2_max: ds.ct2Max,
     ct1_name: ds.ct1Name, ct2_name: ds.ct2Name
   });
   try {
@@ -1808,10 +2075,16 @@ function sendDeviceSettings() {
 }
 function readDeviceForm() {
   return {
-    ct1Name:  val('ds-ct1-name').trim(), ct1Idle: parseFloat(val('ds-ct1-idle')) || 0.5,
-    ct1Max:   parseFloat(val('ds-ct1-max'))  || 15, ct2Name: val('ds-ct2-name').trim(),
-    ct2Idle:  parseFloat(val('ds-ct2-idle')) || 0.5, ct2Max:  parseFloat(val('ds-ct2-max'))  || 15,
-    cmdTopic: val('ds-cmd-topic').trim(), cmdQos: selectedQos
+    ct1Name:  val('ds-ct1-name').trim(),
+    ct1Off:   parseFloat(val('ds-ct1-off'))  || 0.5,
+    ct1Idle:  parseFloat(val('ds-ct1-idle')) || 2.0,
+    ct1Max:   parseFloat(val('ds-ct1-max'))  || 15,
+    ct2Name:  val('ds-ct2-name').trim(),
+    ct2Off:   parseFloat(val('ds-ct2-off'))  || 0.5,
+    ct2Idle:  parseFloat(val('ds-ct2-idle')) || 2.0,
+    ct2Max:   parseFloat(val('ds-ct2-max'))  || 15,
+    cmdTopic: val('ds-cmd-topic').trim(),
+    cmdQos:   selectedQos
   };
 }
 
@@ -1947,35 +2220,56 @@ function updateLiveUI(d) {
   drawSparkline();
 }
 function updateCTChannel(ch, d, ds) {
-  const amps  = parseFloat(d[`ct${ch}_current`] || d[`ct${ch}_amp`] || d[`I${ch}`] || 0);
-  const idle  = parseFloat(ds[`ct${ch}Idle`]) || 0.5;
-  const max   = parseFloat(ds[`ct${ch}Max`])  || 15;
-  const name  = ds[`ct${ch}Name`] || `CT Channel ${ch}`;
+  const amps     = parseFloat(d[`ct${ch}_current`] || d[`ct${ch}_amp`] || d[`I${ch}`] || 0);
+  const offLim   = parseFloat(ds[`ct${ch}Off`])  || 0.5;
+  const idleLim  = parseFloat(ds[`ct${ch}Idle`]) || 2.0;
+  const maxLim   = parseFloat(ds[`ct${ch}Max`])  || 15;
+  const name     = ds[`ct${ch}Name`] || `CT Channel ${ch}`;
+  // Use firmware state from MQTT if present, otherwise derive locally
+  // Firmware states: OFF, IDLE, RUNNING, OVERCURRENT
   const rawState = (d[`ct${ch}_state`] || d[`CT${ch}_state`] || '').toUpperCase();
   let state;
-  if (rawState) {
-    state = rawState === 'RUNNING' ? 'run' : rawState === 'IDLE' ? 'idle' : 'off';
+  if (rawState === 'OVERCURRENT') {
+    state = 'over';
+  } else if (rawState === 'RUNNING') {
+    state = 'run';
+  } else if (rawState === 'IDLE') {
+    state = 'idle';
+  } else if (rawState === 'OFF') {
+    state = 'off';
   } else {
-    state = amps < idle ? 'off' : amps >= max ? 'over' : amps < idle * 3 ? 'idle' : 'run';
+    // Derive from amps — mirrors firmware getDeviceState() exactly:
+    //   amps < offLim   → off
+    //   amps < idleLim  → idle
+    //   amps < maxLim   → run
+    //   amps >= maxLim  → over (OVERCURRENT)
+    if      (amps < offLim)  state = 'off';
+    else if (amps < idleLim) state = 'idle';
+    else if (amps < maxLim)  state = 'run';
+    else                     state = 'over';
   }
   setText(`ct${ch}-label`, name);
   setText(`ct${ch}-amp`,   amps.toFixed(2));
   setText(`ct${ch}-current`, amps.toFixed(2));
   const ampEl = document.getElementById(`ct${ch}-amp`);
-  if (ampEl) ampEl.className = 'ct-amp ' + (state === 'run' || state === 'over' ? 'active' : state === 'idle' ? 'idle' : '');
+  if (ampEl) ampEl.className = 'ct-amp ' + (state === 'over' ? 'over' : state === 'run' ? 'active' : state === 'idle' ? 'idle' : '');
   const badge = document.getElementById(`ct${ch}-badge`);
   if (badge) {
-    badge.className = 'ct-state-badge ' + (state === 'run' || state === 'over' ? 'running' : state === 'idle' ? 'idle' : '');
-    badge.innerHTML = `<span class="badge-dot"></span>${state.toUpperCase()}`;
+    badge.className = 'ct-state-badge ' + (state === 'over' ? 'over' : state === 'run' ? 'running' : state === 'idle' ? 'idle' : '');
+    const label = state === 'over' ? 'OVERCURRENT' : state === 'run' ? 'RUNNING' : state === 'idle' ? 'IDLE' : 'OFF';
+    badge.innerHTML = `<span class="badge-dot"></span>${label}`;
   }
-  const fillPct = Math.min(100, (amps / (max * 1.1)) * 100);
+  const fillPct = Math.min(100, (amps / (maxLim * 1.1)) * 100);
   setStyle(`ct${ch}-thresh-fill`, 'width', fillPct + '%');
   const tFill = document.getElementById(`ct${ch}-thresh-fill`);
   if (tFill) tFill.className = 'threshold-fill' + (state === 'over' ? ' over' : state === 'idle' ? ' idle' : '');
-  const markerPct = Math.min(100, (idle / (max * 1.1)) * 100);
-  setStyle(`ct${ch}-thresh-marker`, 'left', markerPct + '%');
-  setText(`ct${ch}-idle-lbl`, `idle ${idle.toFixed(2)}A`);
-  setText(`ct${ch}-max-lbl`,  `max ${max.toFixed(1)}A`);
+  // Show two marker lines: off→idle boundary (amber) and idle→run boundary (green)
+  const markerOffPct  = Math.min(100, (offLim  / (maxLim * 1.1)) * 100);
+  const markerIdlePct = Math.min(100, (idleLim / (maxLim * 1.1)) * 100);
+  setStyle(`ct${ch}-thresh-marker`,      'left', markerOffPct  + '%');
+  setStyle(`ct${ch}-thresh-marker-idle`, 'left', markerIdlePct + '%');
+  setText(`ct${ch}-idle-lbl`, `off ${offLim.toFixed(2)}A`);
+  setText(`ct${ch}-max-lbl`,  `oc ${maxLim.toFixed(1)}A`);
   setText(`ct${ch}-off`,  fmtDuration(d[`ct${ch}_t_off`]  || d[`CT${ch}_off_s`]));
   setText(`ct${ch}-idle`, fmtDuration(d[`ct${ch}_t_idle`] || d[`CT${ch}_idle_s`]));
   setText(`ct${ch}-run`,  fmtDuration(d[`ct${ch}_t_run`]  || d[`CT${ch}_run_s`]));
@@ -2074,17 +2368,45 @@ function handleDailyReport(payload) {
   try {
     const r = JSON.parse(payload);
     reportHistory = loadJSON(REPORT_KEY, []);
-    reportHistory.unshift(r);
-    if (reportHistory.length > 30) reportHistory.pop();
+    
+    const incomingDate = r.date || r.report_date || null;
+    const existingIdx = reportHistory.findIndex(h => 
+      (h.date || h.report_date) === incomingDate
+    );
+
+    if (existingIdx === -1) {
+      reportHistory.unshift(r);
+      if (reportHistory.length > 30) reportHistory.pop();
+    } else {
+      reportHistory[existingIdx] = r;
+    }
+
     saveJSON(REPORT_KEY, reportHistory);
     renderReport(r);
     document.getElementById('report-badge')?.classList.add('show');
     document.getElementById('sidebar-report-badge')?.classList.add('show');
-    addLog('Daily report received · ' + (r.date || r.report_date || ''), 'good');
+    addLog('Daily report received · ' + (incomingDate || ''), 'good');
   } catch (e) {
     addLog('Report parse error: ' + e.message, 'warn');
   }
 }
+
+function deduplicateReportHistory() {
+  const history = loadJSON(REPORT_KEY, []);
+  const seen = new Set();
+  const cleaned = history.filter(h => {
+    const date = h.date || h.report_date || null;
+    if (seen.has(date)) return false;
+    seen.add(date);
+    return true;
+  });
+  if (cleaned.length !== history.length) {
+    saveJSON(REPORT_KEY, cleaned);
+    reportHistory = cleaned;
+    addLog(`Cleaned ${history.length - cleaned.length} duplicate report(s)`, 'good');
+  }
+}
+
 function renderReport(r) {
   if (!r) return;
   document.getElementById('report-empty')?.classList.add('hidden');
@@ -2149,8 +2471,9 @@ function renderChannelCard(ch, r, container) {
       </div>
     </div>
     <div class="report-ch-thresholds">
-      Idle thr: <span>${r[`ct${ch}_idle`] || r[`ct${ch}`]?.idle_thr || '–'}A</span> ·
-      Max thr: <span>${r[`ct${ch}_max`] || r[`ct${ch}`]?.max_thr || '–'}A</span>
+      Off thr: <span>${(r[`ct${ch}_off_thr`]  || r[`ct${ch}`]?.off_thr  || '–')}A</span> ·
+      Idle thr: <span>${(r[`ct${ch}_idle_thr`] || r[`ct${ch}`]?.idle_thr || '–')}A</span> ·
+      OC thr: <span>${(r[`ct${ch}_max_thr`]  || r[`ct${ch}`]?.max_thr  || '–')}A</span>
     </div>
   `;
   container.appendChild(card);
@@ -2185,11 +2508,22 @@ function generatePDF() {
       doc.text(`Energy: ${(r[`ct${ch}_kwh`] || r.energy?.[`ct${ch}_kWh`] || 0).toFixed(3)} kWh`, lm, y);
       doc.text(`Run: ${fmtDuration(r[`ct${ch}_t_run`] || r[`ct${ch}`]?.run_s)}`, lm+60, y);
       doc.text(`Idle: ${fmtDuration(r[`ct${ch}_t_idle`] || r[`ct${ch}`]?.idle_s)}`, lm+105, y);
-      doc.text(`Off: ${fmtDuration(r[`ct${ch}_t_off`] || r[`ct${ch}`]?.off_s)}`, lm+145, y); y += 10;
+      doc.text(`Off: ${fmtDuration(r[`ct${ch}_t_off`] || r[`ct${ch}`]?.off_s)}`, lm+145, y); y += 6;
+      doc.setFontSize(9); doc.setTextColor(130,130,130);
+      doc.text(`Off thr: ${r[`ct${ch}_off_thr`] || r[`ct${ch}`]?.off_thr || '–'}A  Idle thr: ${r[`ct${ch}_idle_thr`] || r[`ct${ch}`]?.idle_thr || '–'}A  OC thr: ${r[`ct${ch}_max_thr`] || r[`ct${ch}`]?.max_thr || '–'}A`, lm, y); y += 10;
     });
     doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(160,160,160);
     doc.text('Generated by PowerMark · ESP32 MQTT Dashboard', lm, 285);
-    doc.save('PowerMark-Report-' + (r.date || r.report_date || new Date().toISOString().slice(0,10)) + '.pdf');
+    const base64 = doc.output('datauristring');
+    if (window.PdfChannel){
+      window.PdfChannel.postMessage(JSON.stringify({
+        base64: base64,
+        filename: 'PowerMark-Report-' + (r.date || new Date().toISOString().slice(0,10)) + '.pdf'
+      }))
+    } else{
+      // Fallback for browser testing
+      doc.save('PowerMark-Report.pdf');
+    }
   } catch (e) {
     showAlert('PDF error: ' + e.message);
   }
@@ -2234,10 +2568,264 @@ function setText(id, txt) { const el = document.getElementById(id); if (el) el.t
 function setStyle(id, prop, v) { const el = document.getElementById(id); if (el) el.style[prop] = v; }
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+/* ══════════════════════════════════════════════════════════════
+   WI-FI PROVISIONER — BLE logic (mirrors ESP32 Installer HTML)
+   ══════════════════════════════════════════════════════════════ */
+(function() {
+  // BLE UUIDs — must match ESP32 firmware
+  const WPS_SVC   = '00001234-0000-1000-8000-00805f9b34fb';
+  const WPS_PIN   = '0000abcd-0000-1000-8000-00805f9b34fb';
+  const WPS_WIFI  = '0000ef01-0000-1000-8000-00805f9b34fb';
+  const WPS_SCAN  = '0000ef02-0000-1000-8000-00805f9b34fb';
+  const WPS_SSIDS = '0000ef03-0000-1000-8000-00805f9b34fb';
+  const WPS_RESP  = '0000ef05-0000-1000-8000-00805f9b34fb';
+
+  let wpsDevice, wpsPinChar, wpsWifiChar, wpsScanChar, wpsSsidListChar, wpsResponseChar;
+  let wpsPinVerified = false;
+  let wpsSelectedSSID = '';
+
+  // ── helpers ──
+  function wpsStatus(msg, type) {
+    document.getElementById('wps-statusText').textContent = msg;
+    const bar = document.getElementById('wps-statusBar');
+    bar.className = 'wps-status' + (type ? ' ' + type : '');
+  }
+  function wpsCard(id, state) {
+    const el = document.getElementById('wps-card' + id);
+    if (el) el.className = 'wps-card' + (state ? ' ' + state : '');
+  }
+  function wpsEnable(id, on) {
+    const el = document.getElementById('wps-' + id);
+    if (el) el.disabled = !on;
+  }
+
+  // ── Bluetooth availability check ──
+  window.checkWpsBluetooth = function() {
+    if (!navigator.bluetooth) {
+      document.getElementById('wps-bt-warning').innerHTML = `
+        <div class="wps-bt-warn">
+          <strong>⚠ Web Bluetooth Not Available</strong>
+          Enable in browser:<br>
+          <ol>
+            <li>Go to <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;font-size:0.65rem">brave://flags/#enable-web-bluetooth</code></li>
+            <li>Set to <strong>Enabled</strong> → Relaunch</li>
+            <li>Or: Shield icon → Advanced → Allow Device recognition</li>
+          </ol>
+        </div>`;
+      wpsStatus('Web Bluetooth is disabled in this browser.', 'error');
+      wpsEnable('connectBtn', false);
+      return false;
+    }
+    wpsStatus('Ready. Tap "Connect via Bluetooth" to begin.', 'success');
+    return true;
+  };
+
+  // ── Open the sheet (called from settings row) ──
+  window.openWifiProvisionerSheet = function() {
+    openSheet('sheet-wifi-provisioner');
+    // Re-check BT every time sheet opens (in case browser setting changed)
+    checkWpsBluetooth();
+  };
+
+  // ── Connect ──
+  document.getElementById('wps-connectBtn').onclick = async () => {
+    try {
+      wpsStatus('Opening device picker…', 'warning');
+      wpsDevice = await navigator.bluetooth.requestDevice({
+        filters: [{ name: 'ESP32_Config' }],
+        optionalServices: [WPS_SVC]
+      });
+
+      wpsStatus('Connecting…', 'warning');
+      const server  = await wpsDevice.gatt.connect();
+      const service = await server.getPrimaryService(WPS_SVC);
+
+      wpsPinChar      = await service.getCharacteristic(WPS_PIN);
+      wpsWifiChar     = await service.getCharacteristic(WPS_WIFI);
+      wpsScanChar     = await service.getCharacteristic(WPS_SCAN);
+      wpsSsidListChar = await service.getCharacteristic(WPS_SSIDS);
+
+      await wpsSsidListChar.startNotifications();
+      wpsSsidListChar.addEventListener('characteristicvaluechanged', wpsOnSSIDList);
+
+      try {
+        wpsResponseChar = await service.getCharacteristic(WPS_RESP);
+        await wpsResponseChar.startNotifications();
+        wpsResponseChar.addEventListener('characteristicvaluechanged', wpsOnResponse);
+      } catch { wpsResponseChar = null; }
+
+      wpsStatus('Connected to ESP32_Config. Enter PIN to continue.', 'success');
+      wpsCard(1, 'done'); wpsCard(2, 'active');
+      wpsEnable('pinInput', true); wpsEnable('verifyPinBtn', true);
+      wpsDevice.addEventListener('gattserverdisconnected', wpsOnDisconnected);
+
+    } catch (err) {
+      if (err.name === 'NotFoundError') {
+        wpsStatus('Device not found. Check ESP32 is powered & in BLE mode.', 'error');
+      } else if (err.name === 'SecurityError') {
+        wpsStatus('Bluetooth blocked. Check browser/shield settings.', 'error');
+      } else if (err.name === 'NotAllowedError') {
+        wpsStatus('Bluetooth permission denied. Try again.', 'error');
+      } else {
+        wpsStatus('Connection failed: ' + err.message, 'error');
+      }
+    }
+  };
+
+  function wpsOnDisconnected() {
+    wpsStatus('Disconnected from ESP32.', 'warning');
+    wpsPinVerified = false;
+    ['pinInput','verifyPinBtn','scanBtn','passInput','sendWiFiBtn'].forEach(id => wpsEnable(id, false));
+    [2,3,4].forEach(n => wpsCard(n, ''));
+  }
+
+  // ── PIN verify ──
+  document.getElementById('wps-verifyPinBtn').onclick = async () => {
+    if (!wpsPinChar) return;
+    const pin = document.getElementById('wps-pinInput').value.trim();
+    if (!pin) { wpsStatus('Please enter a PIN.', 'error'); return; }
+    try {
+      wpsStatus('Sending PIN to ESP32…', 'warning');
+      wpsEnable('verifyPinBtn', false);
+      await wpsPinChar.writeValue(new TextEncoder().encode(pin));
+
+      if (wpsResponseChar) {
+        wpsStatus('PIN sent. Waiting for ESP32 confirmation…', 'warning');
+        setTimeout(() => {
+          if (!wpsPinVerified) {
+            wpsEnable('verifyPinBtn', true);
+            wpsStatus('No response from ESP32. Try again.', 'error');
+          }
+        }, 6000);
+      } else {
+        await new Promise(r => setTimeout(r, 600));
+        wpsPinVerified = true;
+        wpsStatus('PIN sent. Proceeding (upgrade ESP32 firmware for confirmation).', 'success');
+        wpsCard(2, 'done'); wpsCard(3, 'active');
+        wpsEnable('scanBtn', true);
+      }
+    } catch (err) {
+      wpsEnable('verifyPinBtn', true);
+      wpsStatus('Failed to send PIN: ' + err.message, 'error');
+    }
+  };
+
+  // ── ESP32 response handler ──
+  function wpsOnResponse(event) {
+    const msg = new TextDecoder().decode(event.target.value).trim();
+    switch (msg) {
+      case 'PIN_OK':
+        wpsPinVerified = true;
+        wpsStatus('✓ PIN verified. Scan for networks.', 'success');
+        wpsCard(2, 'done'); wpsCard(3, 'active');
+        wpsEnable('scanBtn', true);
+        break;
+      case 'PIN_FAIL':
+        wpsPinVerified = false;
+        wpsEnable('verifyPinBtn', true);
+        document.getElementById('wps-pinInput').value = '';
+        document.getElementById('wps-pinInput').focus();
+        wpsStatus('✗ Incorrect PIN. Try again.', 'error');
+        break;
+      case 'WIFI_SAVED':
+        wpsStatus('✓ Credentials saved! ESP32 restarting and connecting…', 'success');
+        wpsCard(4, 'done');
+        setTimeout(() => {
+          ['ssidInput','passInput','sendWiFiBtn','scanBtn'].forEach(id => wpsEnable(id, false));
+        }, 1000);
+        break;
+      case 'WIFI_FAIL':
+        wpsStatus('✗ ESP32 failed to connect. Check password and try again.', 'error');
+        wpsEnable('passInput', true); wpsEnable('sendWiFiBtn', true);
+        document.getElementById('wps-passInput').value = '';
+        document.getElementById('wps-passInput').focus();
+        break;
+    }
+  }
+
+  // ── Scan ──
+  document.getElementById('wps-scanBtn').onclick = async () => {
+    if (!wpsScanChar || !wpsPinVerified) return;
+    try {
+      const btn = document.getElementById('wps-scanBtn');
+      btn.innerHTML = '<span class="wps-spin">⟳</span> Scanning…';
+      btn.disabled = true;
+      wpsStatus('Triggering Wi-Fi scan on ESP32…', 'warning');
+      await wpsScanChar.writeValue(new TextEncoder().encode('scan'));
+      wpsStatus('Scan triggered. Waiting for results…', 'warning');
+      setTimeout(() => { btn.innerHTML = '⟳ Scan Again'; btn.disabled = false; }, 8000);
+    } catch (err) {
+      wpsStatus('Scan failed: ' + err.message, 'error');
+      const btn = document.getElementById('wps-scanBtn');
+      btn.innerHTML = '⟳ Scan Networks'; btn.disabled = false;
+    }
+  };
+
+  // ── Receive SSID list (pipe-delimited: "SSID1|SSID2|…") ──
+  function wpsOnSSIDList(event) {
+    const raw = new TextDecoder().decode(event.target.value);
+    const listEl = document.getElementById('wps-ssidList');
+    const btn = document.getElementById('wps-scanBtn');
+    btn.innerHTML = '⟳ Scan Again'; btn.disabled = false;
+
+    const ssids = (raw || '').split('|').map(s => s.trim()).filter(Boolean);
+    if (!ssids.length) {
+      listEl.innerHTML = '<div class="wps-empty">No networks found nearby.</div>';
+      wpsStatus('Scan complete. No networks found.', 'warning');
+      return;
+    }
+    listEl.innerHTML = '';
+    ssids.forEach(ssid => {
+      const item = document.createElement('div');
+      item.className = 'wps-ssid-item';
+      item.innerHTML = `<span>📶</span><span class="wps-ssid-name">${escHtml(ssid)}</span><span class="wps-ssid-check">✓</span>`;
+      item.onclick = () => {
+        document.querySelectorAll('.wps-ssid-item').forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+        wpsSelectedSSID = ssid;
+        document.getElementById('wps-ssidInput').value = ssid;
+        wpsCard(4, 'active');
+        wpsEnable('passInput', true); wpsEnable('sendWiFiBtn', true);
+        document.getElementById('wps-passInput').focus();
+        wpsStatus('Selected: ' + ssid + '. Enter password to connect.', 'success');
+      };
+      listEl.appendChild(item);
+    });
+    wpsStatus('Found ' + ssids.length + ' network' + (ssids.length > 1 ? 's' : '') + '. Select one below.', 'success');
+    wpsCard(3, 'done');
+  }
+
+  // ── Send credentials ("SSID|password") ──
+  document.getElementById('wps-sendWiFiBtn').onclick = async () => {
+    if (!wpsWifiChar || !wpsPinVerified) return;
+    const ssid = document.getElementById('wps-ssidInput').value.trim();
+    const pass = document.getElementById('wps-passInput').value;
+    if (!ssid) { wpsStatus('Please select a network.', 'error'); return; }
+    if (!pass)  { wpsStatus('Please enter a password.', 'error'); return; }
+    try {
+      wpsStatus('Sending credentials to ESP32…', 'warning');
+      await wpsWifiChar.writeValue(new TextEncoder().encode(ssid + '|' + pass));
+      wpsStatus('✓ Credentials sent! ESP32 is restarting and connecting to "' + ssid + '"…', 'success');
+      wpsCard(4, 'done');
+      setTimeout(() => {
+        ['ssidInput','passInput','sendWiFiBtn','scanBtn'].forEach(id => wpsEnable(id, false));
+      }, 1000);
+    } catch (err) {
+      wpsStatus('Failed to send credentials: ' + err.message, 'error');
+    }
+  };
+
+  // Keypress shortcut on PIN input
+  document.getElementById('wps-pinInput').addEventListener('keyup', e => {
+    if (e.key === 'Enter') document.getElementById('wps-verifyPinBtn').click();
+  });
+})();
+
 /* ── Init ── */
 (function init() {
   initTheme();
   reportHistory = loadJSON(REPORT_KEY, []);
+  deduplicateReportHistory();
   if (reportHistory.length) renderReport(reportHistory[0]);
   const cfg = loadJSON(MQTT_KEY, null);
   if (cfg && cfg.broker && cfg.topic) {
