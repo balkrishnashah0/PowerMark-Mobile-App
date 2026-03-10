@@ -2569,20 +2569,18 @@ function setStyle(id, prop, v) { const el = document.getElementById(id); if (el)
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 /* ══════════════════════════════════════════════════════════════
-   WI-FI PROVISIONER — BLE logic (mirrors ESP32 Installer HTML)
+   WI-FI PROVISIONER — BLE logic (Flutter-bridge version)
+   ─────────────────────────────────────────────────────────────
+   Web Bluetooth (navigator.bluetooth) is NOT available inside a
+   Flutter WebView. Instead we delegate every BLE operation to
+   the native Flutter side via BleChannel.postMessage(), and
+   Flutter calls back into JS via window._ble.<eventName>().
    ══════════════════════════════════════════════════════════════ */
 (function() {
-  // BLE UUIDs — must match ESP32 firmware
-  const WPS_SVC   = '00001234-0000-1000-8000-00805f9b34fb';
-  const WPS_PIN   = '0000abcd-0000-1000-8000-00805f9b34fb';
-  const WPS_WIFI  = '0000ef01-0000-1000-8000-00805f9b34fb';
-  const WPS_SCAN  = '0000ef02-0000-1000-8000-00805f9b34fb';
-  const WPS_SSIDS = '0000ef03-0000-1000-8000-00805f9b34fb';
-  const WPS_RESP  = '0000ef05-0000-1000-8000-00805f9b34fb';
 
-  let wpsDevice, wpsPinChar, wpsWifiChar, wpsScanChar, wpsSsidListChar, wpsResponseChar;
   let wpsPinVerified = false;
   let wpsSelectedSSID = '';
+  let _connected = false;   // tracks whether Flutter reports connected
 
   // ── helpers ──
   function wpsStatus(msg, type) {
@@ -2599,220 +2597,204 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
     if (el) el.disabled = !on;
   }
 
-  // ── Bluetooth availability check ──
-  window.checkWpsBluetooth = function() {
-    if (!navigator.bluetooth) {
-      document.getElementById('wps-bt-warning').innerHTML = `
-        <div class="wps-bt-warn">
-          <strong>⚠ Web Bluetooth Not Available</strong>
-          Enable in browser:<br>
-          <ol>
-            <li>Go to <code style="background:rgba(255,255,255,0.08);padding:1px 4px;border-radius:3px;font-size:0.65rem">brave://flags/#enable-web-bluetooth</code></li>
-            <li>Set to <strong>Enabled</strong> → Relaunch</li>
-            <li>Or: Shield icon → Advanced → Allow Device recognition</li>
-          </ol>
-        </div>`;
-      wpsStatus('Web Bluetooth is disabled in this browser.', 'error');
-      wpsEnable('connectBtn', false);
-      return false;
+  // ── Send a command to Flutter ──
+  function bleCmd(cmd, payload) {
+    if (!window.BleChannel) {
+      wpsStatus('BLE bridge not available. Please restart the app.', 'error');
+      return;
     }
-    wpsStatus('Ready. Tap "Connect via Bluetooth" to begin.', 'success');
-    return true;
+    window.BleChannel.postMessage(JSON.stringify({ cmd, ...payload }));
+  }
+
+  // ── Flutter → JS callbacks (called by Flutter via evaluateJavascript) ──
+  // Flutter calls: window._ble.onEvent(JSON.stringify({event, ...data}))
+  window._ble = {
+    onEvent: function(jsonStr) {
+      let msg;
+      try { msg = JSON.parse(jsonStr); } catch(e) { return; }
+      switch (msg.event) {
+
+        case 'BT_AVAILABLE':
+          document.getElementById('wps-bt-warning').innerHTML = '';
+          wpsStatus('Ready. Tap "Connect via Bluetooth" to begin.', 'success');
+          wpsEnable('connectBtn', true);
+          break;
+
+        case 'BT_UNAVAILABLE':
+          document.getElementById('wps-bt-warning').innerHTML = `
+            <div class="wps-bt-warn">
+              <strong>⚠ Bluetooth Not Available</strong>
+              Please enable Bluetooth on your device and grant the app
+              Bluetooth permission, then reopen this panel.
+            </div>`;
+          wpsStatus('Bluetooth is off or permission denied.', 'error');
+          wpsEnable('connectBtn', false);
+          break;
+
+        case 'CONNECTING':
+          wpsStatus('Scanning for ESP32_Config…', 'warning');
+          break;
+
+        case 'CONNECTED':
+          _connected = true;
+          wpsStatus('Connected to ESP32_Config. Enter PIN to continue.', 'success');
+          wpsCard(1, 'done'); wpsCard(2, 'active');
+          wpsEnable('pinInput', true); wpsEnable('verifyPinBtn', true);
+          break;
+
+        case 'CONNECT_FAILED':
+          wpsStatus('Connection failed: ' + (msg.reason || 'device not found'), 'error');
+          wpsEnable('connectBtn', true);
+          break;
+
+        case 'DISCONNECTED':
+          _connected = false;
+          wpsPinVerified = false;
+          wpsStatus('Disconnected from ESP32.', 'warning');
+          ['pinInput','verifyPinBtn','scanBtn','passInput','sendWiFiBtn']
+            .forEach(id => wpsEnable(id, false));
+          [2,3,4].forEach(n => wpsCard(n, ''));
+          break;
+
+        case 'PIN_OK':
+          wpsPinVerified = true;
+          wpsStatus('✓ PIN verified. Scan for networks.', 'success');
+          wpsCard(2, 'done'); wpsCard(3, 'active');
+          wpsEnable('scanBtn', true);
+          break;
+
+        case 'PIN_FAIL':
+          wpsPinVerified = false;
+          wpsEnable('verifyPinBtn', true);
+          document.getElementById('wps-pinInput').value = '';
+          document.getElementById('wps-pinInput').focus();
+          wpsStatus('✗ Incorrect PIN. Try again.', 'error');
+          break;
+
+        case 'PIN_SENT':
+          // Firmware without response char — optimistic proceed
+          wpsPinVerified = true;
+          wpsStatus('PIN sent. Proceeding (upgrade ESP32 firmware for confirmation).', 'success');
+          wpsCard(2, 'done'); wpsCard(3, 'active');
+          wpsEnable('scanBtn', true);
+          break;
+
+        case 'PIN_ERROR':
+          wpsEnable('verifyPinBtn', true);
+          wpsStatus('Failed to send PIN: ' + (msg.reason || 'unknown error'), 'error');
+          break;
+
+        case 'SCAN_STARTED':
+          wpsStatus('Scan triggered. Waiting for results…', 'warning');
+          break;
+
+        case 'SCAN_ERROR':
+          wpsStatus('Scan failed: ' + (msg.reason || 'unknown error'), 'error');
+          const sb = document.getElementById('wps-scanBtn');
+          sb.innerHTML = '⟳ Scan Networks'; sb.disabled = false;
+          break;
+
+        case 'SSID_LIST': {
+          const listEl = document.getElementById('wps-ssidList');
+          const btn = document.getElementById('wps-scanBtn');
+          btn.innerHTML = '⟳ Scan Again'; btn.disabled = false;
+          const ssids = (msg.ssids || []).filter(Boolean);
+          if (!ssids.length) {
+            listEl.innerHTML = '<div class="wps-empty">No networks found nearby.</div>';
+            wpsStatus('Scan complete. No networks found.', 'warning');
+            return;
+          }
+          listEl.innerHTML = '';
+          ssids.forEach(ssid => {
+            const item = document.createElement('div');
+            item.className = 'wps-ssid-item';
+            item.innerHTML = `<span>📶</span><span class="wps-ssid-name">${escHtml(ssid)}</span><span class="wps-ssid-check">✓</span>`;
+            item.onclick = () => {
+              document.querySelectorAll('.wps-ssid-item').forEach(i => i.classList.remove('selected'));
+              item.classList.add('selected');
+              wpsSelectedSSID = ssid;
+              document.getElementById('wps-ssidInput').value = ssid;
+              wpsCard(4, 'active');
+              wpsEnable('passInput', true); wpsEnable('sendWiFiBtn', true);
+              document.getElementById('wps-passInput').focus();
+              wpsStatus('Selected: ' + ssid + '. Enter password to connect.', 'success');
+            };
+            listEl.appendChild(item);
+          });
+          wpsStatus('Found ' + ssids.length + ' network' + (ssids.length > 1 ? 's' : '') + '. Select one below.', 'success');
+          wpsCard(3, 'done');
+          break;
+        }
+
+        case 'WIFI_SAVED':
+          wpsStatus('✓ Credentials saved! ESP32 restarting and connecting…', 'success');
+          wpsCard(4, 'done');
+          setTimeout(() => {
+            ['ssidInput','passInput','sendWiFiBtn','scanBtn'].forEach(id => wpsEnable(id, false));
+          }, 1000);
+          break;
+
+        case 'WIFI_FAIL':
+          wpsStatus('✗ ESP32 failed to connect. Check password and try again.', 'error');
+          wpsEnable('passInput', true); wpsEnable('sendWiFiBtn', true);
+          document.getElementById('wps-passInput').value = '';
+          document.getElementById('wps-passInput').focus();
+          break;
+
+        case 'WIFI_ERROR':
+          wpsStatus('Failed to send credentials: ' + (msg.reason || 'unknown error'), 'error');
+          break;
+      }
+    }
   };
 
-  // ── Open the sheet (called from settings row) ──
+  // ── Bluetooth availability check (now asks Flutter) ──
+  window.checkWpsBluetooth = function() {
+    wpsStatus('Checking Bluetooth…', '');
+    bleCmd('CHECK_BT', {});
+  };
+
+  // ── Open the sheet ──
   window.openWifiProvisionerSheet = function() {
     openSheet('sheet-wifi-provisioner');
-    // Re-check BT every time sheet opens (in case browser setting changed)
     checkWpsBluetooth();
   };
 
-  // ── Connect ──
-  document.getElementById('wps-connectBtn').onclick = async () => {
-    try {
-      wpsStatus('Opening device picker…', 'warning');
-      wpsDevice = await navigator.bluetooth.requestDevice({
-        filters: [{ name: 'ESP32_Config' }],
-        optionalServices: [WPS_SVC]
-      });
-
-      wpsStatus('Connecting…', 'warning');
-      const server  = await wpsDevice.gatt.connect();
-      const service = await server.getPrimaryService(WPS_SVC);
-
-      wpsPinChar      = await service.getCharacteristic(WPS_PIN);
-      wpsWifiChar     = await service.getCharacteristic(WPS_WIFI);
-      wpsScanChar     = await service.getCharacteristic(WPS_SCAN);
-      wpsSsidListChar = await service.getCharacteristic(WPS_SSIDS);
-
-      await wpsSsidListChar.startNotifications();
-      wpsSsidListChar.addEventListener('characteristicvaluechanged', wpsOnSSIDList);
-
-      try {
-        wpsResponseChar = await service.getCharacteristic(WPS_RESP);
-        await wpsResponseChar.startNotifications();
-        wpsResponseChar.addEventListener('characteristicvaluechanged', wpsOnResponse);
-      } catch { wpsResponseChar = null; }
-
-      wpsStatus('Connected to ESP32_Config. Enter PIN to continue.', 'success');
-      wpsCard(1, 'done'); wpsCard(2, 'active');
-      wpsEnable('pinInput', true); wpsEnable('verifyPinBtn', true);
-      wpsDevice.addEventListener('gattserverdisconnected', wpsOnDisconnected);
-
-    } catch (err) {
-      if (err.name === 'NotFoundError') {
-        wpsStatus('Device not found. Check ESP32 is powered & in BLE mode.', 'error');
-      } else if (err.name === 'SecurityError') {
-        wpsStatus('Bluetooth blocked. Check browser/shield settings.', 'error');
-      } else if (err.name === 'NotAllowedError') {
-        wpsStatus('Bluetooth permission denied. Try again.', 'error');
-      } else {
-        wpsStatus('Connection failed: ' + err.message, 'error');
-      }
-    }
+  // ── Connect button ──
+  document.getElementById('wps-connectBtn').onclick = () => {
+    wpsEnable('connectBtn', false);
+    wpsStatus('Requesting connection…', 'warning');
+    bleCmd('CONNECT', { deviceName: 'ESP32_Config' });
   };
-
-  function wpsOnDisconnected() {
-    wpsStatus('Disconnected from ESP32.', 'warning');
-    wpsPinVerified = false;
-    ['pinInput','verifyPinBtn','scanBtn','passInput','sendWiFiBtn'].forEach(id => wpsEnable(id, false));
-    [2,3,4].forEach(n => wpsCard(n, ''));
-  }
 
   // ── PIN verify ──
-  document.getElementById('wps-verifyPinBtn').onclick = async () => {
-    if (!wpsPinChar) return;
+  document.getElementById('wps-verifyPinBtn').onclick = () => {
     const pin = document.getElementById('wps-pinInput').value.trim();
     if (!pin) { wpsStatus('Please enter a PIN.', 'error'); return; }
-    try {
-      wpsStatus('Sending PIN to ESP32…', 'warning');
-      wpsEnable('verifyPinBtn', false);
-      await wpsPinChar.writeValue(new TextEncoder().encode(pin));
-
-      if (wpsResponseChar) {
-        wpsStatus('PIN sent. Waiting for ESP32 confirmation…', 'warning');
-        setTimeout(() => {
-          if (!wpsPinVerified) {
-            wpsEnable('verifyPinBtn', true);
-            wpsStatus('No response from ESP32. Try again.', 'error');
-          }
-        }, 6000);
-      } else {
-        await new Promise(r => setTimeout(r, 600));
-        wpsPinVerified = true;
-        wpsStatus('PIN sent. Proceeding (upgrade ESP32 firmware for confirmation).', 'success');
-        wpsCard(2, 'done'); wpsCard(3, 'active');
-        wpsEnable('scanBtn', true);
-      }
-    } catch (err) {
-      wpsEnable('verifyPinBtn', true);
-      wpsStatus('Failed to send PIN: ' + err.message, 'error');
-    }
+    wpsStatus('Sending PIN to ESP32…', 'warning');
+    wpsEnable('verifyPinBtn', false);
+    bleCmd('WRITE_PIN', { pin });
   };
-
-  // ── ESP32 response handler ──
-  function wpsOnResponse(event) {
-    const msg = new TextDecoder().decode(event.target.value).trim();
-    switch (msg) {
-      case 'PIN_OK':
-        wpsPinVerified = true;
-        wpsStatus('✓ PIN verified. Scan for networks.', 'success');
-        wpsCard(2, 'done'); wpsCard(3, 'active');
-        wpsEnable('scanBtn', true);
-        break;
-      case 'PIN_FAIL':
-        wpsPinVerified = false;
-        wpsEnable('verifyPinBtn', true);
-        document.getElementById('wps-pinInput').value = '';
-        document.getElementById('wps-pinInput').focus();
-        wpsStatus('✗ Incorrect PIN. Try again.', 'error');
-        break;
-      case 'WIFI_SAVED':
-        wpsStatus('✓ Credentials saved! ESP32 restarting and connecting…', 'success');
-        wpsCard(4, 'done');
-        setTimeout(() => {
-          ['ssidInput','passInput','sendWiFiBtn','scanBtn'].forEach(id => wpsEnable(id, false));
-        }, 1000);
-        break;
-      case 'WIFI_FAIL':
-        wpsStatus('✗ ESP32 failed to connect. Check password and try again.', 'error');
-        wpsEnable('passInput', true); wpsEnable('sendWiFiBtn', true);
-        document.getElementById('wps-passInput').value = '';
-        document.getElementById('wps-passInput').focus();
-        break;
-    }
-  }
 
   // ── Scan ──
-  document.getElementById('wps-scanBtn').onclick = async () => {
-    if (!wpsScanChar || !wpsPinVerified) return;
-    try {
-      const btn = document.getElementById('wps-scanBtn');
-      btn.innerHTML = '<span class="wps-spin">⟳</span> Scanning…';
-      btn.disabled = true;
-      wpsStatus('Triggering Wi-Fi scan on ESP32…', 'warning');
-      await wpsScanChar.writeValue(new TextEncoder().encode('scan'));
-      wpsStatus('Scan triggered. Waiting for results…', 'warning');
-      setTimeout(() => { btn.innerHTML = '⟳ Scan Again'; btn.disabled = false; }, 8000);
-    } catch (err) {
-      wpsStatus('Scan failed: ' + err.message, 'error');
-      const btn = document.getElementById('wps-scanBtn');
-      btn.innerHTML = '⟳ Scan Networks'; btn.disabled = false;
-    }
+  document.getElementById('wps-scanBtn').onclick = () => {
+    if (!wpsPinVerified) return;
+    const btn = document.getElementById('wps-scanBtn');
+    btn.innerHTML = '<span class="wps-spin">⟳</span> Scanning…';
+    btn.disabled = true;
+    wpsStatus('Triggering Wi-Fi scan on ESP32…', 'warning');
+    bleCmd('SCAN_WIFI', {});
   };
 
-  // ── Receive SSID list (pipe-delimited: "SSID1|SSID2|…") ──
-  function wpsOnSSIDList(event) {
-    const raw = new TextDecoder().decode(event.target.value);
-    const listEl = document.getElementById('wps-ssidList');
-    const btn = document.getElementById('wps-scanBtn');
-    btn.innerHTML = '⟳ Scan Again'; btn.disabled = false;
-
-    const ssids = (raw || '').split('|').map(s => s.trim()).filter(Boolean);
-    if (!ssids.length) {
-      listEl.innerHTML = '<div class="wps-empty">No networks found nearby.</div>';
-      wpsStatus('Scan complete. No networks found.', 'warning');
-      return;
-    }
-    listEl.innerHTML = '';
-    ssids.forEach(ssid => {
-      const item = document.createElement('div');
-      item.className = 'wps-ssid-item';
-      item.innerHTML = `<span>📶</span><span class="wps-ssid-name">${escHtml(ssid)}</span><span class="wps-ssid-check">✓</span>`;
-      item.onclick = () => {
-        document.querySelectorAll('.wps-ssid-item').forEach(i => i.classList.remove('selected'));
-        item.classList.add('selected');
-        wpsSelectedSSID = ssid;
-        document.getElementById('wps-ssidInput').value = ssid;
-        wpsCard(4, 'active');
-        wpsEnable('passInput', true); wpsEnable('sendWiFiBtn', true);
-        document.getElementById('wps-passInput').focus();
-        wpsStatus('Selected: ' + ssid + '. Enter password to connect.', 'success');
-      };
-      listEl.appendChild(item);
-    });
-    wpsStatus('Found ' + ssids.length + ' network' + (ssids.length > 1 ? 's' : '') + '. Select one below.', 'success');
-    wpsCard(3, 'done');
-  }
-
-  // ── Send credentials ("SSID|password") ──
-  document.getElementById('wps-sendWiFiBtn').onclick = async () => {
-    if (!wpsWifiChar || !wpsPinVerified) return;
+  // ── Send credentials ──
+  document.getElementById('wps-sendWiFiBtn').onclick = () => {
+    if (!wpsPinVerified) return;
     const ssid = document.getElementById('wps-ssidInput').value.trim();
     const pass = document.getElementById('wps-passInput').value;
     if (!ssid) { wpsStatus('Please select a network.', 'error'); return; }
     if (!pass)  { wpsStatus('Please enter a password.', 'error'); return; }
-    try {
-      wpsStatus('Sending credentials to ESP32…', 'warning');
-      await wpsWifiChar.writeValue(new TextEncoder().encode(ssid + '|' + pass));
-      wpsStatus('✓ Credentials sent! ESP32 is restarting and connecting to "' + ssid + '"…', 'success');
-      wpsCard(4, 'done');
-      setTimeout(() => {
-        ['ssidInput','passInput','sendWiFiBtn','scanBtn'].forEach(id => wpsEnable(id, false));
-      }, 1000);
-    } catch (err) {
-      wpsStatus('Failed to send credentials: ' + err.message, 'error');
-    }
+    wpsStatus('Sending credentials to ESP32…', 'warning');
+    bleCmd('SEND_WIFI', { ssid, pass });
   };
 
   // Keypress shortcut on PIN input
@@ -2844,4 +2826,4 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 })();
 </script>
 </body>
-</html>
+</html>   

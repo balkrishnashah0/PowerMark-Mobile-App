@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:open_file/open_file.dart';
+import 'ble_bridge.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -15,6 +16,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   late final WebViewController _controller;
+  late final BleBridge _bleBridge;
 
   static const _darkBg  = Color(0xFF080C10);
   static const _lightBg = Color(0xFFF0F4F8);
@@ -40,6 +42,11 @@ class _DashboardPageState extends State<DashboardPage> {
           }
         },
       )
+      // ── BLE bridge channel — delegates Web Bluetooth to native Flutter ──
+      ..addJavaScriptChannel(
+        'BleChannel',
+        onMessageReceived: (msg) => _bleBridge.handleMessage(msg.message),
+      )
       // ── ADD THIS CHANNEL ──
       ..addJavaScriptChannel(
         'PdfChannel',
@@ -51,6 +58,15 @@ class _DashboardPageState extends State<DashboardPage> {
         },
       ))
       ..loadFlutterAsset('assets/index.html');
+
+    // Must be initialised after _controller is ready
+    _bleBridge = BleBridge(controller: _controller);
+  }
+
+  @override
+  void dispose() {
+    _bleBridge.dispose();
+    super.dispose();
   }
 
   Future<void> _handlePdfDownload(String jsonMsg) async {
