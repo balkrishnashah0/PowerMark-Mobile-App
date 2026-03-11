@@ -8,17 +8,22 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BLE UUIDs — must match ESP32 firmware
+// BLE UUIDs — same values as ESP32 firmware.
+//
+// IMPORTANT: Android shortens UUIDs that follow the Bluetooth base-UUID pattern
+//   (0000xxxx-0000-1000-8000-00805f9b34fb) to just the 4-hex "xxxx" short form.
+//   flutter_blue_plus exposes them that way too, so DO NOT compare full 128-bit
+//   strings.  Use Guid() for comparison — it normalises both forms correctly.
 // ─────────────────────────────────────────────────────────────────────────────
-const _svcUuid   = '00001234-0000-1000-8000-00805f9b34fb';
-const _pinUuid   = '0000abcd-0000-1000-8000-00805f9b34fb';
-const _wifiUuid  = '0000ef01-0000-1000-8000-00805f9b34fb';
-const _scanUuid  = '0000ef02-0000-1000-8000-00805f9b34fb';
-const _ssidsUuid = '0000ef03-0000-1000-8000-00805f9b34fb';
-const _respUuid  = '0000ef05-0000-1000-8000-00805f9b34fb';
+final _svcGuid   = Guid('00001234-0000-1000-8000-00805f9b34fb');
+final _pinGuid   = Guid('0000abcd-0000-1000-8000-00805f9b34fb');
+final _wifiGuid  = Guid('0000ef01-0000-1000-8000-00805f9b34fb');
+final _scanGuid  = Guid('0000ef02-0000-1000-8000-00805f9b34fb');
+final _ssidsGuid = Guid('0000ef03-0000-1000-8000-00805f9b34fb');
+final _respGuid  = Guid('0000ef05-0000-1000-8000-00805f9b34fb');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// BleBridge — delegates BLE ops from WebView JS to native flutter_blue_plus
+// BleBridge
 //
 // 1. In State.initState(), after building WebViewController:
 //      _bleBridge = BleBridge(controller: _controller);
@@ -79,7 +84,7 @@ class BleBridge {
   Future<void> _checkBluetooth() async {
     if (Platform.isAndroid) {
       final granted = await _requestAndroidPermissions();
-      if (!granted) return; // _requestAndroidPermissions already fired jsEvent
+      if (!granted) return;
     }
 
     final state = await FlutterBluePlus.adapterState.first;
@@ -89,19 +94,18 @@ class BleBridge {
     }
 
     if (Platform.isAndroid) {
-      // Shows native Android "Allow app to turn on Bluetooth?" dialog
       try {
         await FlutterBluePlus.turnOn();
         final next = await FlutterBluePlus.adapterState
             .where((s) => s != BluetoothAdapterState.turningOn)
             .first
             .timeout(const Duration(seconds: 10));
-        if (next == BluetoothAdapterState.on) {
-          await _jsEvent('BT_AVAILABLE');
-        } else {
-          await _jsEvent('BT_UNAVAILABLE',
-              {'reason': 'Bluetooth was not enabled. Please turn it on and try again.'});
-        }
+        await _jsEvent(
+          next == BluetoothAdapterState.on ? 'BT_AVAILABLE' : 'BT_UNAVAILABLE',
+          next != BluetoothAdapterState.on
+              ? {'reason': 'Bluetooth was not enabled. Please turn it on and try again.'}
+              : null,
+        );
       } catch (e) {
         await _jsEvent('BT_UNAVAILABLE', {'reason': e.toString()});
       }
@@ -112,36 +116,29 @@ class BleBridge {
     }
   }
 
-  // ── Android permission request — version-aware ────────────────────────────
-  // Android 12+ (API 31+) uses BLUETOOTH_SCAN + BLUETOOTH_CONNECT.
-  // Android 11 and below uses the legacy BLUETOOTH permission + location.
-  // permission_handler returns "denied" for permissions that don't exist on
-  // the running OS — so we must branch by SDK version, not just request all.
+  // ── Android version-aware permission request ──────────────────────────────
   Future<bool> _requestAndroidPermissions() async {
-    final sdkInt = await _androidSdkVersion();
+    int sdk = 31;
+    try {
+      sdk = (await DeviceInfoPlugin().androidInfo).version.sdkInt;
+    } catch (_) {}
 
-    late Map<Permission, PermissionStatus> statuses;
-
-    if (sdkInt >= 31) {
-      // Android 12+ — new granular BT permissions (no location needed for BLE)
+    final Map<Permission, PermissionStatus> statuses;
+    if (sdk >= 31) {
+      // Android 12+ — BLUETOOTH_SCAN + BLUETOOTH_CONNECT (no location needed)
       statuses = await [
         Permission.bluetoothScan,
         Permission.bluetoothConnect,
       ].request();
     } else {
-      // Android 11 and below — legacy BT permission + location required for scan
+      // Android 11 and below — legacy BLUETOOTH + location
       statuses = await [
         Permission.bluetooth,
         Permission.locationWhenInUse,
       ].request();
     }
 
-    final permanentlyDenied =
-        statuses.values.any((s) => s == PermissionStatus.permanentlyDenied);
-    final denied =
-        statuses.values.any((s) => s == PermissionStatus.denied);
-
-    if (permanentlyDenied) {
+    if (statuses.values.any((s) => s == PermissionStatus.permanentlyDenied)) {
       await _jsEvent('BT_UNAVAILABLE', {
         'reason':
             'Bluetooth permission permanently denied. '
@@ -149,22 +146,13 @@ class BleBridge {
       });
       return false;
     }
-    if (denied) {
+    if (statuses.values.any((s) => s == PermissionStatus.denied)) {
       await _jsEvent('BT_UNAVAILABLE', {
         'reason': 'Bluetooth permission denied. Please allow it and try again.',
       });
       return false;
     }
     return true;
-  }
-
-  Future<int> _androidSdkVersion() async {
-    try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      return info.version.sdkInt;
-    } catch (_) {
-      return 31; // safe default — assume modern if lookup fails
-    }
   }
 
   // ── CONNECT ───────────────────────────────────────────────────────────────
@@ -179,6 +167,7 @@ class BleBridge {
     }
 
     try {
+      // ── Scan for ESP32_Config ──────────────────────────────────────────────
       final completer = Completer<BluetoothDevice?>();
 
       final scanSub = FlutterBluePlus.onScanResults.listen((results) {
@@ -217,6 +206,8 @@ class BleBridge {
       }
 
       _device = found;
+
+      // ── Connect ───────────────────────────────────────────────────────────
       await _device!.connect(autoConnect: false);
 
       _connSub = _device!.connectionState.listen((s) {
@@ -226,17 +217,51 @@ class BleBridge {
         }
       });
 
+      // ── Discover services — use Guid() comparison, never raw strings ───────
+      //
+      // Why: Android automatically converts UUIDs matching the Bluetooth base
+      // pattern (0000xxxx-0000-1000-8000-00805f9b34fb) to their short 16-bit
+      // form.  flutter_blue_plus returns them in whatever form Android gives,
+      // so service.uuid.toString() may return "1234" not the full 128-bit
+      // string.  Guid() normalises both, making == work reliably.
       final services = await _device!.discoverServices();
-      final svc = services.firstWhere(
-        (s) => s.uuid.toString().toLowerCase() == _svcUuid,
-        orElse: () => throw Exception(
-            'BLE service $_svcUuid not found. Check ESP32 firmware.'),
-      );
 
-      _pinChar   = _findChar(svc, _pinUuid);
-      _wifiChar  = _findChar(svc, _wifiUuid);
-      _scanChar  = _findChar(svc, _scanUuid);
-      _ssidsChar = _findChar(svc, _ssidsUuid);
+      // Debug: log every discovered service UUID so you can verify in console
+      debugPrint('[BleBridge] Discovered ${services.length} services:');
+      for (final s in services) {
+        debugPrint('  SVC: ${s.uuid}');
+        for (final c in s.characteristics) {
+          debugPrint('    CHAR: ${c.uuid}');
+        }
+      }
+
+      BluetoothService? svc;
+      for (final s in services) {
+        if (s.uuid == _svcGuid) { svc = s; break; }
+      }
+
+      if (svc == null) {
+        // Fallback: try matching by short UUID string "1234"
+        for (final s in services) {
+          if (s.uuid.toString().toLowerCase() == '1234') { svc = s; break; }
+        }
+      }
+
+      if (svc == null) {
+        await _device!.disconnect();
+        await _jsEvent('CONNECT_FAILED', {
+          'reason':
+              'BLE service not found on ESP32. '
+              'Check the ESP32 is in provisioning mode (hold BOOT 3s). '
+              'Expected service: 0x1234',
+        });
+        return;
+      }
+
+      _pinChar   = _findChar(svc, _pinGuid);
+      _wifiChar  = _findChar(svc, _wifiGuid);
+      _scanChar  = _findChar(svc, _scanGuid);
+      _ssidsChar = _findChar(svc, _ssidsGuid);
 
       if (_ssidsChar != null) {
         await _ssidsChar!.setNotifyValue(true);
@@ -244,7 +269,7 @@ class BleBridge {
       }
 
       try {
-        _respChar = _findChar(svc, _respUuid);
+        _respChar = _findChar(svc, _respGuid);
         if (_respChar != null) {
           await _respChar!.setNotifyValue(true);
           _respSub = _respChar!.onValueReceived.listen(_onResponse);
@@ -268,6 +293,7 @@ class BleBridge {
     try {
       await _pinChar!.write(pin.codeUnits, withoutResponse: false);
       if (_respChar == null) await _jsEvent('PIN_SENT');
+      // else PIN_OK / PIN_FAIL arrives via _onResponse
     } catch (e) {
       await _jsEvent('PIN_ERROR', {'reason': e.toString()});
     }
@@ -296,6 +322,7 @@ class BleBridge {
     try {
       await _wifiChar!.write('$ssid|$pass'.codeUnits, withoutResponse: false);
       if (_respChar == null) await _jsEvent('WIFI_SAVED');
+      // else WIFI_SAVED / WIFI_FAIL comes via _onResponse
     } catch (e) {
       await _jsEvent('WIFI_ERROR', {'reason': e.toString()});
     }
@@ -321,13 +348,13 @@ class BleBridge {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  BluetoothCharacteristic? _findChar(BluetoothService svc, String uuid) {
-    try {
-      return svc.characteristics
-          .firstWhere((c) => c.uuid.toString().toLowerCase() == uuid);
-    } catch (_) {
-      return null;
+
+  // Use Guid == comparison, never string matching
+  BluetoothCharacteristic? _findChar(BluetoothService svc, Guid guid) {
+    for (final c in svc.characteristics) {
+      if (c.uuid == guid) return c;
     }
+    return null;
   }
 
   void _cleanupSubscriptions() {
