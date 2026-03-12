@@ -525,11 +525,55 @@ canvas.wave { width: 100%; height: 36px; display: block; }
 .report-ch-thresholds span { color: var(--text-2); font-weight: 500; }
 
 .history-list { border-top: 1px solid var(--border); }
-.history-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background var(--t-fast); min-height: 44px; }
+.history-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background var(--t-fast); min-height: 44px; gap: 10px; }
 .history-item:active { background: var(--bg-3); }
+.history-item.selected { background: var(--cyan-dim); }
 .history-item-date { font-family: var(--font-display); font-size: 0.82rem; font-weight: 600; letter-spacing: 0.04em; color: var(--cyan); }
-.history-item-kwh  { font-family: var(--font-mono); font-size: 0.82rem; color: var(--green); }
-.history-item-arrow{ color: var(--text-3); }
+.history-item-kwh  { font-family: var(--font-mono); font-size: 0.82rem; color: var(--green); flex: 1; text-align: right; }
+.history-item-arrow{ color: var(--text-3); flex-shrink: 0; }
+
+.history-checkbox {
+  width: 18px; height: 18px; border-radius: 4px;
+  border: 1.5px solid var(--border-hi); background: var(--bg-4);
+  display: grid; place-items: center; flex-shrink: 0;
+  transition: all var(--t-fast);
+}
+.history-item.selected .history-checkbox { background: var(--cyan); border-color: var(--cyan); }
+.history-checkbox::after {
+  content: ''; width: 5px; height: 9px;
+  border-right: 2px solid var(--bg); border-bottom: 2px solid var(--bg);
+  transform: rotate(45deg) translate(-1px, -1px);
+  opacity: 0; transition: opacity var(--t-fast);
+}
+.history-item.selected .history-checkbox::after { opacity: 1; }
+
+.history-toolbar {
+  display: none; align-items: center; justify-content: space-between;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  background: var(--bg-3); gap: 8px;
+}
+.history-toolbar.show { display: flex; }
+.history-toolbar-left { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-3); }
+.history-toolbar-left span { color: var(--cyan); font-weight: 500; }
+.history-toolbar-actions { display: flex; gap: 6px; }
+.history-toolbar-btn {
+  padding: 6px 12px; border-radius: var(--r-xs);
+  font-family: var(--font-display); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  border: 1px solid var(--border-hi); background: var(--bg-4); color: var(--text-2);
+  transition: all var(--t-fast); min-height: 32px;
+}
+.history-toolbar-btn:active { background: var(--bg-5); }
+.history-toolbar-btn.danger { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+.history-toolbar-btn.danger:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.history-select-btn {
+  font-family: var(--font-display); font-size: 0.65rem; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3);
+  background: none; border: none; padding: 5px 8px; border-radius: var(--r-xs);
+  transition: all var(--t-fast);
+}
+.history-select-btn:hover { background: var(--bg-5); color: var(--text-2); }
+.history-select-btn.active { color: var(--cyan); }
 
 /* ══════════════════════════════════════
    SETTINGS TAB
@@ -700,19 +744,6 @@ canvas.wave { width: 100%; height: 36px; display: block; }
   font-family: var(--font-display); font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--green);
 }
 
-/* ── PIN sheet ── */
-.pin-icon-wrap { text-align: center; margin: 10px 0 18px; }
-.pin-icon-circle {
-  width: 60px; height: 60px; border-radius: var(--r-md);
-  background: var(--cyan-dim); border: 1px solid var(--border-act);
-  margin: 0 auto 10px; display: grid; place-items: center;
-}
-.pin-input-wrap { position: relative; }
-.pin-eye-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-3); padding: 10px; min-width: 40px; min-height: 40px; display: grid; place-items: center; }
-.pin-error { min-height: 18px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--red); text-align: center; margin: 5px 0; }
-.pin-error.shake { animation: shake 0.32s var(--ease); }
-.send-result { min-height: 18px; font-family: var(--font-mono); font-size: 0.72rem; text-align: center; margin-top: 12px; color: var(--text-3); }
-
 /* ── Sidebar ── */
 .sidebar { display: none; }
 
@@ -797,7 +828,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
   .payload-pre { max-height: 230px; }
   .report-channels-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; }
   .report-channels-grid .report-ch-card { margin-top: 0; }
-  .settings-desktop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  .settings-desktop-grid { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: start; max-width: 600px; }
   canvas.sparkline { height: 56px; }
   .bottom-nav { display: none; }
 
@@ -914,7 +945,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
     </div>
 
     <div class="sidebar-conn">
-      <div class="conn-pill" id="conn-pill-sidebar" onclick="requestConfigAccess()">
+      <div class="conn-pill" id="conn-pill-sidebar" onclick="openMqttSheet()">
         <div class="conn-dot" id="conn-dot-sidebar"></div>
         <span id="conn-text-sidebar">OFFLINE</span>
       </div>
@@ -956,7 +987,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
     <span class="topbar-page-title" id="topbar-title">Live Data</span>
 
     <div class="header-actions">
-      <div class="conn-pill" id="conn-pill" onclick="requestConfigAccess()">
+      <div class="conn-pill" id="conn-pill" onclick="openMqttSheet()">
         <div class="conn-dot" id="conn-dot"></div>
         <span id="conn-text">OFFLINE</span>
       </div>
@@ -1178,25 +1209,83 @@ canvas.wave { width: 100%; height: 36px; display: block; }
             <div class="stat-unit">KILOWATT HOURS</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Peak W</div>
+            <div class="stat-label">Peak Power</div>
             <div class="stat-val cyan" id="rpt-peak">–</div>
             <div class="stat-unit">WATTS</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Avg V</div>
+            <div class="stat-label">Avg V (Normal)</div>
             <div class="stat-val" id="rpt-avgv">–</div>
             <div class="stat-unit">VOLTS</div>
+          </div>
+        </div>
+        <div class="stat-row" style="margin-top:6px">
+          <div class="stat-card">
+            <div class="stat-label">Min V</div>
+            <div class="stat-val" id="rpt-minv">–</div>
+            <div class="stat-unit">VOLTS</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Max V</div>
+            <div class="stat-val" id="rpt-maxv">–</div>
+            <div class="stat-unit">VOLTS</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Mains Loss</div>
+            <div class="stat-val warn" id="rpt-vloss">–</div>
+            <div class="stat-unit">DURATION</div>
+          </div>
+        </div>
+
+        <div class="section-title">Voltage Quality</div>
+        <div class="card" style="margin-bottom:0">
+          <div style="padding:12px 14px 6px">
+            <div class="preview-label" style="margin-bottom:8px">Duration by Voltage State</div>
+            <div class="preview-bar-track" id="vq-bar" style="height:10px;border-radius:4px"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px">
+              <div class="tbd-stat-item">
+                <div class="tbd-stat-label"><span class="tbd-dot" style="background:var(--green)"></span>Normal</div>
+                <div class="tbd-stat-val" id="vq-normal">–</div>
+                <div class="tbd-stat-pct" id="vq-normal-pct"></div>
+              </div>
+              <div class="tbd-stat-item">
+                <div class="tbd-stat-label"><span class="tbd-dot" style="background:var(--amber)"></span>Under Voltage</div>
+                <div class="tbd-stat-val" id="vq-under">–</div>
+                <div class="tbd-stat-pct" id="vq-under-pct"></div>
+              </div>
+              <div class="tbd-stat-item">
+                <div class="tbd-stat-label"><span class="tbd-dot" style="background:var(--red)"></span>Over Voltage</div>
+                <div class="tbd-stat-val" id="vq-over">–</div>
+                <div class="tbd-stat-pct" id="vq-over-pct"></div>
+              </div>
+              <div class="tbd-stat-item">
+                <div class="tbd-stat-label"><span class="tbd-dot" style="background:var(--text-4)"></span>Mains Loss</div>
+                <div class="tbd-stat-val" id="vq-loss">–</div>
+                <div class="tbd-stat-pct" id="vq-loss-pct"></div>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="section-title">Channels</div>
         <div class="report-channels-grid" id="report-channels"></div>
+      </div>
 
-        <div class="section-title">History</div>
-        <div class="card">
-          <div class="history-list" id="history-list">
-            <div class="no-data">No history yet</div>
+      <div class="section-title">History</div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px 0;">
+          <span style="font-family:var(--font-display);font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);">Recent Reports</span>
+          <button class="history-select-btn" id="history-select-toggle" onclick="toggleHistorySelectMode()">Select</button>
+        </div>
+        <div class="history-toolbar" id="history-toolbar">
+          <div class="history-toolbar-left"><span id="history-selected-count">0</span> selected</div>
+          <div class="history-toolbar-actions">
+            <button class="history-toolbar-btn" onclick="selectAllHistory()">All</button>
+            <button class="history-toolbar-btn danger" id="history-delete-btn" onclick="deleteSelectedHistory()" disabled>Delete</button>
           </div>
+        </div>
+        <div class="history-list" id="history-list">
+          <div class="no-data">No history yet</div>
         </div>
       </div>
 
@@ -1210,40 +1299,6 @@ canvas.wave { width: 100%; height: 36px; display: block; }
       <div class="settings-desktop-grid">
 
         <div class="settings-list">
-          <div class="settings-section">
-            <div class="settings-section-header">Connection</div>
-            <div class="settings-row" onclick="openWifiProvisionerSheet()">
-              <div class="settings-row-left">
-                <div class="settings-row-icon cyan">
-                  <svg width="16" height="16" viewBox="0 0 24 24" stroke="var(--cyan)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
-                  </svg>
-                </div>
-                <div class="settings-row-info">
-                  <div class="settings-row-title">Wi-Fi Provisioning</div>
-                  <div class="settings-row-sub">BLE · ESP32_Config</div>
-                </div>
-              </div>
-              <div class="settings-row-right">
-                <svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor"><use href="#ico-arrow-right"/></svg>
-              </div>
-            </div>
-            <div class="settings-row" onclick="openDeviceSheet()">
-              <div class="settings-row-left">
-                <div class="settings-row-icon green">
-                  <svg width="16" height="16" viewBox="0 0 24 24" stroke="var(--green)"><use href="#ico-chip"/></svg>
-                </div>
-                <div class="settings-row-info">
-                  <div class="settings-row-title">Device Settings</div>
-                  <div class="settings-row-sub">Thresholds · Labels</div>
-                </div>
-              </div>
-              <div class="settings-row-right">
-                <svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor"><use href="#ico-arrow-right"/></svg>
-              </div>
-            </div>
-          </div>
-
           <div class="settings-section">
             <div class="settings-section-header">Display</div>
             <div class="settings-row">
@@ -1261,9 +1316,7 @@ canvas.wave { width: 100%; height: 36px; display: block; }
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="settings-list">
           <div class="settings-section">
             <div class="settings-section-header">Data</div>
             <div class="settings-row" onclick="clearLog()">
@@ -1297,8 +1350,58 @@ canvas.wave { width: 100%; height: 36px; display: block; }
           </div>
 
           <div class="settings-section">
+            <div class="settings-section-header">Connection</div>
+            <div class="settings-row" onclick="openMqttSheet()">
+              <div class="settings-row-left">
+                <div class="settings-row-icon cyan">
+                  <svg width="16" height="16" viewBox="0 0 24 24" stroke="var(--cyan)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/>
+                  </svg>
+                </div>
+                <div class="settings-row-info">
+                  <div class="settings-row-title">MQTT Config</div>
+                  <div class="settings-row-sub" id="mqtt-settings-sub">Broker · Topic · Credentials</div>
+                </div>
+              </div>
+              <div class="settings-row-right">
+                <svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor"><use href="#ico-arrow-right"/></svg>
+              </div>
+            </div>
+            <div class="settings-row" onclick="openWifiProvisionerSheet()">
+              <div class="settings-row-left">
+                <div class="settings-row-icon cyan">
+                  <svg width="16" height="16" viewBox="0 0 24 24" stroke="var(--cyan)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>
+                  </svg>
+                </div>
+                <div class="settings-row-info">
+                  <div class="settings-row-title">Wi-Fi Provisioning</div>
+                  <div class="settings-row-sub">BLE · ESP32_Config</div>
+                </div>
+              </div>
+              <div class="settings-row-right">
+                <svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor"><use href="#ico-arrow-right"/></svg>
+              </div>
+            </div>
+            <div class="settings-row" onclick="openDeviceSheet()">
+              <div class="settings-row-left">
+                <div class="settings-row-icon green">
+                  <svg width="16" height="16" viewBox="0 0 24 24" stroke="var(--green)"><use href="#ico-chip"/></svg>
+                </div>
+                <div class="settings-row-info">
+                  <div class="settings-row-title">Device Settings</div>
+                  <div class="settings-row-sub">Thresholds · Labels</div>
+                </div>
+              </div>
+              <div class="settings-row-right">
+                <svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor"><use href="#ico-arrow-right"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-section">
             <div class="settings-section-header">About</div>
-            <div class="settings-row" id="app-version-row" style="cursor:pointer" onclick="handleAppVersionTap(event)">
+            <div class="settings-row" id="app-version-row" style="cursor:default">
               <div class="settings-row-left">
                 <div class="settings-row-icon cyan">
                   <svg width="16" height="16" viewBox="0 0 24 24" stroke="var(--cyan)"><use href="#ico-info"/></svg>
@@ -1338,42 +1441,6 @@ canvas.wave { width: 100%; height: 36px; display: block; }
 
 <!-- ══ BACKDROP ══ -->
 <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeAllSheets()"></div>
-
-<!-- ══ SHEET: PIN ══ -->
-<div class="bottom-sheet" id="sheet-pin">
-  <div class="sheet-handle"></div>
-  <div class="sheet-header">
-    <div>
-      <div class="sheet-title">Installer Access</div>
-      <div class="sheet-sub">Enter PIN to configure MQTT</div>
-    </div>
-    <button class="sheet-close" onclick="closeSheet('sheet-pin')">
-      <svg width="16" height="16" viewBox="0 0 24 24"><use href="#ico-close"/></svg>
-    </button>
-  </div>
-  <div class="sheet-body">
-    <div class="pin-icon-wrap">
-      <div class="pin-icon-circle" id="pin-icon">
-        <svg width="26" height="26" viewBox="0 0 24 24" stroke="var(--cyan)"><use href="#ico-lock" id="pin-lock-svg"/></svg>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Access PIN</label>
-      <div class="pin-input-wrap">
-        <input class="form-input" id="pin-input" type="password" placeholder="••••••••"
-               autocomplete="off" inputmode="text" onkeyup="if(event.key==='Enter') submitPin()">
-        <button class="pin-eye-btn" onclick="togglePinEye()">
-          <svg width="17" height="17" viewBox="0 0 24 24" id="pin-eye-icon"><use href="#ico-eye"/></svg>
-        </button>
-      </div>
-      <div class="pin-error" id="pin-error"></div>
-    </div>
-    <button class="btn-primary" onclick="submitPin()">Unlock</button>
-    <div style="text-align:center;margin-top:10px;font-family:var(--font-mono);font-size:0.58rem;color:var(--text-3);letter-spacing:0.1em">
-      AUTHORISED INSTALLER ACCESS ONLY
-    </div>
-  </div>
-</div>
 
 <!-- ══ SHEET: MQTT CONFIG ══ -->
 <div class="bottom-sheet" id="sheet-mqtt">
@@ -1792,7 +1859,6 @@ canvas.wave { width: 100%; height: 36px; display: block; }
    PowerMark — ESP32 IoT Dashboard  |  app.js
    ════════════════════════════════════════════════════════════ */
 
-const INSTALLER_PASS = 'Diyalo@IoT';
 const DAILY_TOPIC    = 'energy/daily/latest';
 const STALE_MS       = 30000;
 const MQTT_KEY       = 'pm-mqtt-cfg';
@@ -1818,12 +1884,10 @@ let waveData         = { ct1: [], ct2: [] };
 let logEntries       = [];
 let reportHistory    = [];
 let staleTimer       = null;
-let configUnlocked   = false;
 let selectedQos      = 1;
 let isLight          = true;
-let appVersionTapCount = 0;
-let appVersionTapTimer = null;
-let pinEyeVisible    = false;
+let historySelectMode = false;
+let historySelected   = new Set();
 
 const TAB_TITLES = { live: 'Live Data', report: 'Daily Report', settings: 'Settings' };
 
@@ -1861,18 +1925,6 @@ function applyTheme(light, save) {
 }
 function toggleTheme() { applyTheme(!isLight, true); }
 
-function handleAppVersionTap(e) {
-  if (e) { e.preventDefault(); e.stopPropagation(); }
-  appVersionTapCount += 1;
-  if (appVersionTapTimer) clearTimeout(appVersionTapTimer);
-  appVersionTapTimer = setTimeout(() => { appVersionTapCount = 0; }, 2000);
-  if (appVersionTapCount >= 3) {
-    appVersionTapCount = 0;
-    if (appVersionTapTimer) clearTimeout(appVersionTapTimer);
-    requestConfigAccess();
-  }
-}
-
 /* ── Navigation ── */
 function switchTab(tabName, clickedEl) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -1889,6 +1941,7 @@ function switchTab(tabName, clickedEl) {
   if (tabName === 'report') {
     document.getElementById('report-badge')?.classList.remove('show');
     document.getElementById('sidebar-report-badge')?.classList.remove('show');
+    renderHistoryList();
   }
   setTimeout(() => {
     resizeCanvas('sparkline'); resizeCanvas('wave1'); resizeCanvas('wave2');
@@ -1920,43 +1973,11 @@ function setConnPill(state) {
   });
 }
 
-/* ── PIN / Access gate ── */
-function requestConfigAccess() {
-  if (configUnlocked) {
-    openSheet('sheet-mqtt');
-    setTimeout(() => document.getElementById('cfg-broker')?.focus(), 400);
-  } else {
-    openSheet('sheet-pin');
-    setTimeout(() => document.getElementById('pin-input')?.focus(), 400);
-  }
-}
-function submitPin() {
-  const val = document.getElementById('pin-input')?.value || '';
-  const errEl = document.getElementById('pin-error');
-  if (val === INSTALLER_PASS) {
-    configUnlocked = true;
-    const svgEl = document.getElementById('pin-lock-svg');
-    if (svgEl) svgEl.setAttribute('href', '#ico-unlock');
-    const circle = document.getElementById('pin-icon');
-    if (circle) { circle.style.borderColor = 'var(--green)'; circle.style.background = 'var(--green-dim)'; }
-    setTimeout(() => {
-      closeSheet('sheet-pin');
-      loadMqttConfig();
-      openSheet('sheet-mqtt');
-      setTimeout(() => document.getElementById('cfg-broker')?.focus(), 400);
-    }, 380);
-  } else {
-    if (errEl) { errEl.textContent = 'Incorrect PIN'; errEl.classList.remove('shake'); void errEl.offsetWidth; errEl.classList.add('shake'); }
-    const input = document.getElementById('pin-input');
-    if (input) { input.value = ''; input.focus(); }
-  }
-}
-function togglePinEye() {
-  const inp = document.getElementById('pin-input');
-  const ico = document.getElementById('pin-eye-icon');
-  pinEyeVisible = !pinEyeVisible;
-  if (inp) inp.type = pinEyeVisible ? 'text' : 'password';
-  if (ico) ico.innerHTML = pinEyeVisible ? '<use href="#ico-eye-off"/>' : '<use href="#ico-eye"/>';
+/* ── MQTT Sheet opener ── */
+function openMqttSheet() {
+  loadMqttConfig();
+  openSheet('sheet-mqtt');
+  setTimeout(() => document.getElementById('cfg-broker')?.focus(), 400);
 }
 
 /* ── Sheets ── */
@@ -2414,22 +2435,134 @@ function renderReport(r) {
   setText('report-date', r.date || r.report_date || 'Daily Report');
   setText('report-gen',  'Generated · ' + fmtTime(new Date()));
   setText('rpt-kwh',  (r.total_kwh || r.energy?.total_kWh || 0).toFixed(3));
-  setText('rpt-peak', (r.peak_w    || 0).toFixed(0) + 'W');
-  setText('rpt-avgv', (r.avg_v     || r.voltage?.avg || 0).toFixed(1) + 'V');
+  setText('rpt-peak', (r.peak_w != null ? r.peak_w : 0).toFixed(0) + 'W');
+  setText('rpt-avgv', (r.avg_v  || r.voltage?.avg || 0).toFixed(1) + 'V');
+  setText('rpt-minv', (r.voltage?.min || 0).toFixed(1) + 'V');
+  setText('rpt-maxv', (r.voltage?.max || 0).toFixed(1) + 'V');
+
+  // Voltage quality durations
+  const vNormal = r.voltage?.normal_s || 0;
+  const vUnder  = r.voltage?.under_s  || 0;
+  const vOver   = r.voltage?.over_s   || 0;
+  const vLoss   = r.voltage?.loss_s   || 0;
+  const vTotal  = vNormal + vUnder + vOver + vLoss || 1;
+  const vPct    = s => ((s / vTotal) * 100).toFixed(1);
+  setText('vq-normal',     fmtDuration(vNormal));
+  setText('vq-under',      fmtDuration(vUnder));
+  setText('vq-over',       fmtDuration(vOver));
+  setText('vq-loss',       fmtDuration(vLoss));
+  setText('vq-normal-pct', vPct(vNormal) + '%');
+  setText('vq-under-pct',  vPct(vUnder)  + '%');
+  setText('vq-over-pct',   vPct(vOver)   + '%');
+  setText('vq-loss-pct',   vPct(vLoss)   + '%');
+  setText('rpt-vloss',     fmtDuration(vLoss));
+
+  // Voltage quality bar
+  const bar = document.getElementById('vq-bar');
+  if (bar) {
+    bar.innerHTML =
+      `<div style="width:${vPct(vNormal)}%;background:var(--green);transition:width 0.4s"></div>` +
+      `<div style="width:${vPct(vUnder)}%;background:var(--amber);transition:width 0.4s"></div>` +
+      `<div style="width:${vPct(vOver)}%;background:var(--red);transition:width 0.4s"></div>` +
+      `<div style="flex:1;background:var(--bg-6)"></div>`;
+  }
+
+  // Colour-code mains-loss stat
+  const lossEl = document.getElementById('rpt-vloss');
+  if (lossEl) lossEl.className = 'stat-val ' + (vLoss > 0 ? 'warn' : '');
+
   const grid = document.getElementById('report-channels');
   if (grid) { grid.innerHTML = ''; [1, 2].forEach(ch => renderChannelCard(ch, r, grid)); }
+  renderHistoryList();
+}
+
+function renderHistoryList() {
   const histList = document.getElementById('history-list');
-  if (histList) {
-    const hist = loadJSON(REPORT_KEY, []);
-    if (!hist.length) { histList.innerHTML = '<div class="no-data">No history yet</div>'; return; }
-    histList.innerHTML = hist.slice(0, 10).map(h =>
-      `<div class="history-item" onclick='renderReport(${JSON.stringify(h)})'>
-         <span class="history-item-date">${h.date || h.report_date || '–'}</span>
-         <span class="history-item-kwh">${(h.total_kwh || h.energy?.total_kWh || 0).toFixed(3)} kWh</span>
-         <span class="history-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#ico-arrow-right"/></svg></span>
-       </div>`
-    ).join('');
+  if (!histList) return;
+  const hist = loadJSON(REPORT_KEY, []);
+  if (!hist.length) { histList.innerHTML = '<div class="no-data">No history yet</div>'; return; }
+  histList.innerHTML = hist.slice(0, 30).map((h, i) => {
+    const dateKey = h.date || h.report_date || String(i);
+    const isSelected = historySelected.has(dateKey);
+    if (historySelectMode) {
+      return `<div class="history-item${isSelected ? ' selected' : ''}" onclick="toggleHistoryItem(${i}, '${escHtml(dateKey)}')" data-idx="${i}">
+        <div class="history-checkbox"></div>
+        <span class="history-item-date">${dateKey}</span>
+        <span class="history-item-kwh">${(h.total_kwh || h.energy?.total_kWh || 0).toFixed(3)} kWh</span>
+      </div>`;
+    } else {
+      return `<div class="history-item" onclick='renderReport(${JSON.stringify(h)})'>
+        <span class="history-item-date">${dateKey}</span>
+        <span class="history-item-kwh">${(h.total_kwh || h.energy?.total_kWh || 0).toFixed(3)} kWh</span>
+        <span class="history-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#ico-arrow-right"/></svg></span>
+      </div>`;
+    }
+  }).join('');
+  updateHistoryToolbar();
+}
+
+function toggleHistorySelectMode() {
+  historySelectMode = !historySelectMode;
+  historySelected.clear();
+  const btn = document.getElementById('history-select-toggle');
+  const toolbar = document.getElementById('history-toolbar');
+  if (btn) btn.classList.toggle('active', historySelectMode);
+  if (btn) btn.textContent = historySelectMode ? 'Done' : 'Select';
+  if (toolbar) toolbar.classList.toggle('show', historySelectMode);
+  renderHistoryList();
+}
+
+function toggleHistoryItem(idx, dateKey) {
+  if (historySelected.has(dateKey)) {
+    historySelected.delete(dateKey);
+  } else {
+    historySelected.add(dateKey);
   }
+  renderHistoryList();
+}
+
+function selectAllHistory() {
+  const hist = loadJSON(REPORT_KEY, []);
+  const allKeys = hist.slice(0, 30).map((h, i) => h.date || h.report_date || String(i));
+  if (historySelected.size === allKeys.length) {
+    historySelected.clear();
+  } else {
+    allKeys.forEach(k => historySelected.add(k));
+  }
+  renderHistoryList();
+}
+
+function updateHistoryToolbar() {
+  const countEl = document.getElementById('history-selected-count');
+  const deleteBtn = document.getElementById('history-delete-btn');
+  const allBtn = document.querySelector('.history-toolbar-btn:not(.danger)');
+  const count = historySelected.size;
+  const hist = loadJSON(REPORT_KEY, []);
+  const total = Math.min(hist.length, 30);
+  if (countEl) countEl.textContent = count;
+  if (deleteBtn) deleteBtn.disabled = count === 0;
+  if (allBtn) allBtn.textContent = (count === total && total > 0) ? 'None' : 'All';
+}
+
+function deleteSelectedHistory() {
+  if (!historySelected.size) return;
+  let hist = loadJSON(REPORT_KEY, []);
+  hist = hist.filter((h, i) => {
+    const dateKey = h.date || h.report_date || String(i);
+    return !historySelected.has(dateKey);
+  });
+  saveJSON(REPORT_KEY, hist);
+  reportHistory = hist;
+  historySelected.clear();
+  if (hist.length) {
+    renderReport(hist[0]);
+  } else {
+    document.getElementById('report-empty')?.classList.remove('hidden');
+    document.getElementById('report-content')?.classList.add('hidden');
+    toggleHistorySelectMode();
+  }
+  renderHistoryList();
+  updateHistoryToolbar();
 }
 function renderChannelCard(ch, r, container) {
   const name  = r[`ct${ch}_name`] || r[`ct${ch}`]?.name || `CT Channel ${ch}`;
@@ -2498,8 +2631,22 @@ function generatePDF() {
     doc.text('Overview', lm + 4, y + 6); y += 8;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text(`Total Energy: ${(r.total_kwh || r.energy?.total_kWh || 0).toFixed(3)} kWh`, lm + 4, y + 4);
-    doc.text(`Peak Power: ${(r.peak_w||0).toFixed(0)} W`, lm + 60, y + 4);
-    doc.text(`Avg Voltage: ${(r.avg_v || r.voltage?.avg || 0).toFixed(1)} V`, lm + 120, y + 4); y += 18;
+    doc.text(`Peak Power: ${(r.peak_w != null ? r.peak_w : 0).toFixed(0)} W`, lm + 65, y + 4);
+    doc.text(`Avg V (Normal): ${(r.avg_v || r.voltage?.avg || 0).toFixed(1)} V`, lm + 120, y + 4); y += 18;
+
+    // Voltage quality row
+    doc.setFillColor(245, 247, 250); doc.roundedRect(lm, y, 175, 22, 3, 3, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30,30,30);
+    doc.text('Voltage Quality', lm + 4, y + 6); y += 8;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(60,60,60);
+    const vNormal = r.voltage?.normal_s || 0;
+    const vUnder  = r.voltage?.under_s  || 0;
+    const vOver   = r.voltage?.over_s   || 0;
+    const vLoss   = r.voltage?.loss_s   || 0;
+    doc.text(`Normal: ${fmtDuration(vNormal)}`, lm + 4, y + 4);
+    doc.text(`Under V: ${fmtDuration(vUnder)}`, lm + 48, y + 4);
+    doc.text(`Over V: ${fmtDuration(vOver)}`, lm + 95, y + 4);
+    doc.text(`Mains Loss: ${fmtDuration(vLoss)}`, lm + 135, y + 4); y += 18;
     [1,2].forEach(ch => {
       const name = r[`ct${ch}_name`] || r[`ct${ch}`]?.name || `CT Channel ${ch}`;
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(0, 180, 100);
@@ -2809,6 +2956,7 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
   reportHistory = loadJSON(REPORT_KEY, []);
   deduplicateReportHistory();
   if (reportHistory.length) renderReport(reportHistory[0]);
+  else renderHistoryList();
   const cfg = loadJSON(MQTT_KEY, null);
   if (cfg && cfg.broker && cfg.topic) {
     document.getElementById('unconfigured-banner')?.classList.remove('show');
@@ -2821,9 +2969,8 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
     if (lastData) updateLiveUI(lastData);
   });
   setTimeout(() => { ['sparkline','wave1','wave2'].forEach(resizeCanvas); }, 300);
-  document.getElementById('pin-input')?.addEventListener('keyup', e => { if (e.key === 'Enter') submitPin(); });
   addLog('PowerMark ready', 'good');
 })();
 </script>
 </body>
-</html>   
+</html>
