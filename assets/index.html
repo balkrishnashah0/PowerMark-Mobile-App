@@ -2406,7 +2406,8 @@ function handleDailyReport(payload) {
     renderReport(r);
     document.getElementById('report-badge')?.classList.add('show');
     document.getElementById('sidebar-report-badge')?.classList.add('show');
-    addLog('Daily report received · ' + (incomingDate || ''), 'good');
+    const late = r.generated_at === 'offline' ? ' · ⚠ delivered late' : '';
+    addLog('Daily report received · ' + (incomingDate || '') + late, 'good');
   } catch (e) {
     addLog('Report parse error: ' + e.message, 'warn');
   }
@@ -2433,7 +2434,14 @@ function renderReport(r) {
   document.getElementById('report-empty')?.classList.add('hidden');
   document.getElementById('report-content')?.classList.remove('hidden');
   setText('report-date', r.date || r.report_date || 'Daily Report');
-  setText('report-gen',  'Generated · ' + fmtTime(new Date()));
+  const genAt = r.generated_at || '';
+  const isOffline = genAt === 'offline';
+  setText('report-gen', isOffline
+    ? '⚠ Delivered late — MQTT was offline at midnight'
+    : 'Generated · ' + (genAt ? genAt.slice(0, 19).replace('T', ' ') : fmtTime(new Date()))
+  );
+  const genEl = document.getElementById('report-gen');
+  if (genEl) genEl.style.color = isOffline ? 'var(--amber)' : '';
   setText('rpt-kwh',  (r.total_kwh || r.energy?.total_kWh || 0).toFixed(3));
   setText('rpt-peak', (r.peak_w != null ? r.peak_w : 0).toFixed(0) + 'W');
   setText('rpt-avgv', (r.avg_v  || r.voltage?.avg || 0).toFixed(1) + 'V');
@@ -2482,17 +2490,19 @@ function renderHistoryList() {
   const hist = loadJSON(REPORT_KEY, []);
   if (!hist.length) { histList.innerHTML = '<div class="no-data">No history yet</div>'; return; }
   histList.innerHTML = hist.slice(0, 30).map((h, i) => {
-    const dateKey = h.date || h.report_date || String(i);
+    const dateKey  = h.date || h.report_date || String(i);
     const isSelected = historySelected.has(dateKey);
+    const isLate   = (h.generated_at === 'offline');
+    const lateBadge = isLate ? '<span style="font-size:0.6rem;color:var(--amber);margin-left:4px">⚠ late</span>' : '';
     if (historySelectMode) {
       return `<div class="history-item${isSelected ? ' selected' : ''}" onclick="toggleHistoryItem(${i}, '${escHtml(dateKey)}')" data-idx="${i}">
         <div class="history-checkbox"></div>
-        <span class="history-item-date">${dateKey}</span>
+        <span class="history-item-date">${dateKey}${lateBadge}</span>
         <span class="history-item-kwh">${(h.total_kwh || h.energy?.total_kWh || 0).toFixed(3)} kWh</span>
       </div>`;
     } else {
       return `<div class="history-item" onclick='renderReport(${JSON.stringify(h)})'>
-        <span class="history-item-date">${dateKey}</span>
+        <span class="history-item-date">${dateKey}${lateBadge}</span>
         <span class="history-item-kwh">${(h.total_kwh || h.energy?.total_kWh || 0).toFixed(3)} kWh</span>
         <span class="history-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#ico-arrow-right"/></svg></span>
       </div>`;
@@ -2973,4 +2983,4 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 })();
 </script>
 </body>
-</html>
+</html>   
