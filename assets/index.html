@@ -1195,10 +1195,13 @@ canvas.wave { width: 100%; height: 36px; display: block; }
             <div class="report-date" id="report-date">–</div>
             <div class="report-gen" id="report-gen">–</div>
           </div>
-          <button class="report-export-btn" onclick="generatePDF()" id="report-pdf-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24"><use href="#ico-download"/></svg>
-            PDF
-          </button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span id="report-type-badge" style="display:none;font-family:var(--font-display);font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r-xs);border:1px solid transparent;"></span>
+            <button class="report-export-btn" onclick="generatePDF()" id="report-pdf-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24"><use href="#ico-download"/></svg>
+              PDF
+            </button>
+          </div>
         </div>
 
         <div class="section-title">Overview</div>
@@ -1866,7 +1869,6 @@ const DEVICE_KEY     = 'pm-device-settings';
 const REPORT_KEY     = 'pm-report-history';
 const THEME_KEY      = 'pm-theme';
 
-// ── CHANGE 1: Apply light theme by default on first load ──
 // Only go dark if the user has explicitly saved 'dark' preference.
 (function() {
   const saved = localStorage.getItem(THEME_KEY);
@@ -1901,7 +1903,6 @@ function saveJSON(key, val) {
 /* ── Theme ── */
 function initTheme() {
   const saved = localStorage.getItem(THEME_KEY);
-  // ── CHANGE 2: Default is light; only go dark if user explicitly saved 'dark' ──
   const light = saved !== 'dark';
   applyTheme(light, false);
 }
@@ -2186,6 +2187,18 @@ function onMessageArrived(msg) {
     pushWave(2, parseFloat(d.ct2_current || d.ct2_amp || d.I2 || 0));
     pushHistory(parseFloat(d.total_power || d.power || (d.P1||0) + (d.P2||0) || 0));
     addLog(`${topic} · ${(d.total_power || d.power || 0)}W`, 'good');
+    // Surface reboot offline-gap as a one-time banner
+    if (d.reboot === true || d.reboot === 'true') {
+      const gapSec = parseInt(d.reboot_off_s) || 0;
+      if (gapSec > 0) {
+        const h = Math.floor(gapSec / 3600), m = Math.floor((gapSec % 3600) / 60);
+        showAlert(`ESP32 rebooted · was offline for ${h}h ${m}m · data gap added to OFF counters`, 'warn');
+        addLog(`Reboot detected · offline gap ${h}h ${m}m`, 'warn');
+      } else {
+        showAlert('ESP32 rebooted · resuming normal operation', 'info');
+        addLog('Reboot detected (no gap data)', 'warn');
+      }
+    }
   } catch (e) {
     addLog('Parse error: ' + e.message, 'warn');
   }
@@ -2406,8 +2419,11 @@ function handleDailyReport(payload) {
     renderReport(r);
     document.getElementById('report-badge')?.classList.add('show');
     document.getElementById('sidebar-report-badge')?.classList.add('show');
-    const late = r.generated_at === 'offline' ? ' · ⚠ delivered late' : '';
-    addLog('Daily report received · ' + (incomingDate || '') + late, 'good');
+    const type = r.report_type || 'complete';
+    const suffix = type === 'partial' ? ' · ⚠ partial day (device was off at midnight)'
+                 : type === 'delayed' ? ' · ⏱ delivered late (MQTT offline at midnight)'
+                 : '';
+    addLog('Daily report received · ' + (incomingDate || '') + suffix, 'good');
   } catch (e) {
     addLog('Report parse error: ' + e.message, 'warn');
   }
@@ -2434,14 +2450,74 @@ function renderReport(r) {
   document.getElementById('report-empty')?.classList.add('hidden');
   document.getElementById('report-content')?.classList.remove('hidden');
   setText('report-date', r.date || r.report_date || 'Daily Report');
-  const genAt = r.generated_at || '';
-  const isOffline = genAt === 'offline';
-  setText('report-gen', isOffline
-    ? '⚠ Delivered late — MQTT was offline at midnight'
-    : 'Generated · ' + (genAt ? genAt.slice(0, 19).replace('T', ' ') : fmtTime(new Date()))
-  );
+
+  const genAt     = r.generated_at || '';
+  const type      = r.report_type || 'complete';
+  const isDelayed = type === 'delayed';
+  const isPartial = type === 'partial';
+
+  // ── Type badge (top-right of title row) ──
+  const badge = document.getElementById('report-type-badge');
+  if (badge) {
+    if (isPartial) {
+      badge.style.display = 'inline-flex';
+      badge.style.background = 'var(--amber-dim)';
+      badge.style.borderColor = 'var(--amber)';
+      badge.style.color = 'var(--amber)';
+      badge.textContent = '⚠ Partial';
+    } else if (isDelayed) {
+      badge.style.display = 'inline-flex';
+      badge.style.background = 'var(--cyan-dim)';
+      badge.style.borderColor = 'var(--cyan)';
+      badge.style.color = 'var(--cyan)';
+      badge.textContent = '⏱ Delayed';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // ── Info banner ──
+  let banner = document.getElementById('report-partial-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'report-partial-banner';
+    banner.style.cssText = 'display:none;margin:0 0 10px;padding:10px 12px;border-radius:var(--r-sm);border:1px solid;font-family:var(--font-mono);font-size:0.72rem;line-height:1.6;';
+    const genEl = document.getElementById('report-gen');
+    genEl?.parentNode?.insertBefore(banner, genEl);
+  }
+  if (isPartial && r.data_from && r.data_to) {
+    banner.style.display = 'block';
+    banner.style.borderColor = 'var(--amber)';
+    banner.style.background = 'var(--amber-dim)';
+    banner.style.color = 'var(--amber)';
+    banner.innerHTML =
+      `⚠ <strong>Partial day</strong> — ESP32 was powered off at midnight<br>` +
+      `<span style="color:var(--text-2)">Monitored: <strong>${r.data_from}</strong> → <strong>${r.data_to}</strong></span><br>` +
+      `<span style="color:var(--text-3)">Report built on next boot: ${genAt.slice(0,19)}</span>`;
+  } else if (isDelayed) {
+    banner.style.display = 'block';
+    banner.style.borderColor = 'var(--cyan)';
+    banner.style.background = 'var(--cyan-dim)';
+    banner.style.color = 'var(--cyan)';
+    banner.innerHTML =
+      `⏱ <strong>Delayed delivery</strong> — full day data, MQTT was offline at midnight<br>` +
+      `<span style="color:var(--text-3)">Generated at midnight: ${genAt.slice(0,19)} · Published on reconnect</span>`;
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // ── Status line ──
+  let genLabel;
+  if (isPartial) {
+    genLabel = '⚠ Partial day — ESP32 was off at midnight';
+  } else if (isDelayed) {
+    genLabel = '⏱ Delayed — full data, MQTT offline at midnight';
+  } else {
+    genLabel = 'Generated · ' + (genAt ? genAt.slice(0, 19).replace('T', ' ') : fmtTime(new Date()));
+  }
+  setText('report-gen', genLabel);
   const genEl = document.getElementById('report-gen');
-  if (genEl) genEl.style.color = isOffline ? 'var(--amber)' : '';
+  if (genEl) genEl.style.color = isPartial ? 'var(--amber)' : isDelayed ? 'var(--cyan)' : '';
   setText('rpt-kwh',  (r.total_kwh || r.energy?.total_kWh || 0).toFixed(3));
   setText('rpt-peak', (r.peak_w != null ? r.peak_w : 0).toFixed(0) + 'W');
   setText('rpt-avgv', (r.avg_v  || r.voltage?.avg || 0).toFixed(1) + 'V');
@@ -2492,17 +2568,20 @@ function renderHistoryList() {
   histList.innerHTML = hist.slice(0, 30).map((h, i) => {
     const dateKey  = h.date || h.report_date || String(i);
     const isSelected = historySelected.has(dateKey);
-    const isLate   = (h.generated_at === 'offline');
-    const lateBadge = isLate ? '<span style="font-size:0.6rem;color:var(--amber);margin-left:4px">⚠ late</span>' : '';
+    const type      = h.report_type || 'complete';
+    const isDelayed = type === 'delayed';
+    const isPartial = type === 'partial';
+    const lateBadge    = isDelayed ? '<span style="font-size:0.6rem;color:var(--cyan);margin-left:4px">⏱ delayed</span>'  : '';
+    const partialBadge = isPartial ? '<span style="font-size:0.6rem;color:var(--amber);margin-left:4px">⚠ partial</span>' : '';
     if (historySelectMode) {
       return `<div class="history-item${isSelected ? ' selected' : ''}" onclick="toggleHistoryItem(${i}, '${escHtml(dateKey)}')" data-idx="${i}">
         <div class="history-checkbox"></div>
-        <span class="history-item-date">${dateKey}${lateBadge}</span>
+        <span class="history-item-date">${dateKey}${lateBadge}${partialBadge}</span>
         <span class="history-item-kwh">${(h.total_kwh || h.energy?.total_kWh || 0).toFixed(3)} kWh</span>
       </div>`;
     } else {
       return `<div class="history-item" onclick='renderReport(${JSON.stringify(h)})'>
-        <span class="history-item-date">${dateKey}${lateBadge}</span>
+        <span class="history-item-date">${dateKey}${lateBadge}${partialBadge}</span>
         <span class="history-item-kwh">${(h.total_kwh || h.energy?.total_kWh || 0).toFixed(3)} kWh</span>
         <span class="history-item-arrow"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><use href="#ico-arrow-right"/></svg></span>
       </div>`;
@@ -2635,7 +2714,21 @@ function generatePDF() {
     doc.text('PowerMark — Daily Report', lm, y); y += 8;
     doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80);
     doc.text('Date: ' + (r.date || r.report_date || new Date().toLocaleDateString()), lm, y);
-    doc.text('Generated: ' + new Date().toLocaleString(), lm + 80, y); y += 12;
+    const genAt  = r.generated_at || '';
+    const rType  = r.report_type  || 'complete';
+    const genAtStr = genAt.length > 10 ? genAt.slice(0, 19) : new Date().toLocaleString();
+    doc.text('Generated: ' + genAtStr, lm + 80, y); y += 6;
+    if (rType === 'partial' && r.data_from && r.data_to) {
+      doc.setFont('helvetica', 'bold'); doc.setTextColor(200, 120, 0);
+      doc.text('PARTIAL DAY - ESP32 was powered off at midnight', lm, y); y += 5;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120, 80, 0);
+      doc.text('Monitored: ' + r.data_from + '  ->  ' + r.data_to, lm, y); y += 7;
+      doc.setFontSize(10); doc.setTextColor(80, 80, 80);
+    } else if (rType === 'delayed') {
+      doc.setFont('helvetica', 'italic'); doc.setTextColor(0, 140, 180);
+      doc.text('DELAYED DELIVERY - Full day data, MQTT was offline at midnight', lm, y); y += 7;
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(80, 80, 80);
+    } else { y += 6; }
     doc.setFillColor(245, 247, 250); doc.roundedRect(lm, y, 175, 22, 3, 3, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(30,30,30);
     doc.text('Overview', lm + 4, y + 6); y += 8;

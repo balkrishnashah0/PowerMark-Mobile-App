@@ -217,13 +217,7 @@ class BleBridge {
         }
       });
 
-      // ── Discover services — use Guid() comparison, never raw strings ───────
-      //
-      // Why: Android automatically converts UUIDs matching the Bluetooth base
-      // pattern (0000xxxx-0000-1000-8000-00805f9b34fb) to their short 16-bit
-      // form.  flutter_blue_plus returns them in whatever form Android gives,
-      // so service.uuid.toString() may return "1234" not the full 128-bit
-      // string.  Guid() normalises both, making == work reliably.
+    
       final services = await _device!.discoverServices();
 
       // Debug: log every discovered service UUID so you can verify in console
@@ -347,7 +341,7 @@ class BleBridge {
     _jsEvent('SSID_LIST', {'ssids': ssids});
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+
 
   // Use Guid == comparison, never string matching
   BluetoothCharacteristic? _findChar(BluetoothService svc, Guid guid) {

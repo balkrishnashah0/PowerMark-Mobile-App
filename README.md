@@ -45,15 +45,3 @@ PowerMark is a mobile application designed to help users monitor and manage thei
 
 - ✅ **Android** (API 21+)
 
-## 📊 Screenshots
-
-![Dashboard](assets/screenshots/dashboard.png)
-*Main dashboard showing real-time power consumption*
-
-![Analytics](assets/screenshots/analytics.png)
-*Detailed analytics and historical data*
-
-![Device Management](assets/screenshots/devices.png)
-*Device management and control interface*
-
----
